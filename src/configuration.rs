@@ -15,6 +15,12 @@ pub struct DatabaseSettings {
     pub database_name: String,
 }
 
+impl DatabaseSettings {
+  pub fn get_connection_string(&self) -> String {
+    format!("postgres://{}:{}@{}:{}/{}", self.username, self.password, self.host, self.port, self.database_name)
+  }
+}
+
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     // Add configuration values from a file named `configuration`.
     // It will look for any top-level file with an extension

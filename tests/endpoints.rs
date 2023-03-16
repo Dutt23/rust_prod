@@ -1,6 +1,6 @@
 use std::net::TcpListener;
-
-use news_letter::startup::run;
+use sqlx::{PgConnection, Connection};
+use news_letter::{startup::run, configuration::get_configuration};
 
 /// tests/endpoints.rs
 // `tokio::test` is the testing equivalent of `tokio::main`.
@@ -27,6 +27,10 @@ async fn health_check_test() {
 async fn subscribe_returns_a_200_for_valid_form_data() {
     let address = spawn_app();
     let client = reqwest::Client::new();
+
+    let settings = get_configuration().expect("Unable to read configuration files");
+    let connection_string = settings.database.get_connection_string();
+    let connection = PgConnection::connect(&connection_string).await.expect("Unable to connect to database");
 
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     let response = client
