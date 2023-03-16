@@ -1,6 +1,6 @@
-use std::{net::TcpListener};
+use std::net::TcpListener;
 
-use news_letter::startup::{run};
+use news_letter::startup::run;
 
 /// tests/endpoints.rs
 // `tokio::test` is the testing equivalent of `tokio::main`.
@@ -60,7 +60,7 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
             .send()
             .await
             .expect("Failed to execute request.");
-				
+
         assert_eq!(
             400,
             response.status().as_u16(),
@@ -75,6 +75,6 @@ fn spawn_app() -> String {
     let port = listener.local_addr().unwrap().port();
     let server = run(listener).expect("Failed to bind address");
     let _ = tokio::spawn(server);
-		std::env::set_var("RUST_BACKTRACE", "1");
+    std::env::set_var("RUST_BACKTRACE", "1");
     format!("http://127.0.0.1:{}", port)
 }

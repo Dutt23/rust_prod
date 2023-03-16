@@ -1,0 +1,7 @@
+application_port: 8080
+database:
+  host: "127.0.0.1"
+  port: 5430
+  username: "root"
+  password: "secret"
+  database_name: "news_letter" 

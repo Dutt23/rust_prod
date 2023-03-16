@@ -9,7 +9,7 @@ edition = "2021"
 path = "src/lib.rs"
 
 [[bin]]
-name = "hallo"
+name = "news_letter"
 path = "src/main.rs"
 
 [dependencies]
