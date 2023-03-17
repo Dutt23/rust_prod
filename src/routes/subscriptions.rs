@@ -1,6 +1,7 @@
 use actix_web::{post, web, HttpResponse, Responder};
 use chrono::Utc;
 use sqlx::PgPool;
+use tracing::Instrument;
 use uuid::Uuid;
 
 #[derive(serde::Deserialize)]
@@ -24,6 +25,10 @@ async fn subscriptions(form: web::Form<FormData>, pool: web::Data<PgPool>) -> im
     // See the following section on `Instrumenting Futures`
     let _request_span_guard = request_span.enter();
 
+    let query_span = tracing::info_span!("Saving user details", 
+     %request_id,
+    subscriber_email = %form.email,
+    subscriber_name= %form.name);
     tracing::info!(
         "Adding '{}' and '{}' as a new subscriber",
         form.email,
@@ -41,6 +46,7 @@ async fn subscriptions(form: web::Form<FormData>, pool: web::Data<PgPool>) -> im
     // We use `get_ref` to get an immutable reference to the `PgConnection`
     // wrapped by `web::Data`.
     .execute(pool.get_ref())
+    .instrument(query_span)
     .await
     {
         Ok(_) => {
