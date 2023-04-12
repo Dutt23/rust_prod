@@ -25,16 +25,16 @@ DB_PORT="${POSTGRES_PORT:=5430}"
 # Launch postgres using Docker
 
 # Allow to skip Docker if a dockerized Postgres database is already running
-if [[ -z "${SKIP_DOCKER}" ]]
-then
-  docker run \
-      -e POSTGRES_USER=${DB_USER} \
-      -e POSTGRES_PASSWORD=${DB_PASSWORD} \
-      -e POSTGRES_DB=${DB_NAME} \
-      -p "${DB_PORT}":5432 \
-      -d postgres \
-      postgres -N 1000
-fi
+# if [[ -z "${SKIP_DOCKER}" ]]
+# then
+#   docker run \
+#       -e POSTGRES_USER=${DB_USER} \
+#       -e POSTGRES_PASSWORD=${DB_PASSWORD} \
+#       -e POSTGRES_DB=${DB_NAME} \
+#       -p "${DB_PORT}":5432 \
+#       -d postgres \
+#       postgres -N 1000
+# fi
 # docker run \
 #   -e POSTGRES_USER=${DB_USER} \
 #   -e POSTGRES_DB=${DB_NAME} \

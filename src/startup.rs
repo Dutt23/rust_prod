@@ -1,4 +1,5 @@
 use crate::routes::{health_check, subscriptions};
+
 use actix_web::dev::Server;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
