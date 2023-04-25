@@ -1,5 +1,5 @@
 # We use the latest Rust stable release as base image
-FROM rust:1.67.0
+FROM rust:1.67.0-slim-buster AS builder
 # Let's switch our working directory to `app` (equivalent to `cd app`)
 # The `app` folder will be created for us by Docker in case it does not
 # exist already.
@@ -9,9 +9,14 @@ RUN apt update && apt install lld clang -y
 # Copy all files from our working environment to our Docker image
 COPY . .
 ENV SQLX_OFFLINE true
+RUN cargo build --release
+
+#Runtime stage
+FROM rust:1.67.0-slim-buster AS runtime
+WORKDIR /app
+COPY --from=builder /app/target/release/news_letter news_letter
 # Let's build our binary!
 # We'll use the release profile to make it faaaast
-RUN cargo build --release
 ENV APP_ENVIRONMENT production
 # When `docker run` is executed, launch the binary!
 ENTRYPOINT ["./target/release/news_letter"]
