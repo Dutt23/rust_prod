@@ -11,7 +11,7 @@ pub struct FormData {
 
 // Spans, like logs, have an associated level // `info_span` creates a span at the info-level
 // See the following section on `Instrumenting Futures`
-#[tracing::instrument(name = "Adding a new subscriber.", skip(form, pool), fields(request_id = %Uuid::new_v4(), subscriber_email = %form.email, subscriber_name= %form.name))]
+#[tracing::instrument(name = "Adding a new subscriber.", skip(form, pool), fields(subscriber_email = %form.email, subscriber_name= %form.name))]
 #[post("/subscriptions")]
 async fn subscriptions(form: web::Form<FormData>, pool: web::Data<PgPool>) -> impl Responder {
     match insert(&pool, &form).await {
