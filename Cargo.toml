@@ -17,6 +17,7 @@ env_logger = "0.10.0"
 log = "0.4.17"
 migrate = "0.2.0"
 postgres = "0.19.4"
+secrecy = { version = "0.8.0", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 sqlx = { version = "0.6.2", features = ["runtime-actix-rustls", "macros", "postgres", "uuid", "chrono", "migrate"] }
 tokio = { version = "1.26.0", features = ["full"] }
