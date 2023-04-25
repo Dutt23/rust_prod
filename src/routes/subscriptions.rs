@@ -11,24 +11,24 @@ pub struct FormData {
     name: String,
 }
 
+impl TryFrom<FormData> for NewSubscriber {
+    type Error = String;
+
+    fn try_from(value: FormData) -> Result<Self, Self::Error> {
+        let name = SubscriberName::parse(value.name)?;
+        let email = SubscriberEmail::parse(value.email)?;
+        Ok(NewSubscriber { email, name })
+    }
+}
+
 // Spans, like logs, have an associated level // `info_span` creates a span at the info-level
 // See the following section on `Instrumenting Futures`
 #[tracing::instrument(name = "Adding a new subscriber.", skip(form, pool), fields(subscriber_email = %form.email, subscriber_name= %form.name))]
 #[post("/subscriptions")]
 async fn subscriptions(form: web::Form<FormData>, pool: web::Data<PgPool>) -> impl Responder {
-    let name = match SubscriberName::parse(form.0.name) {
-        Ok(name) => name,
+    let new_subscriber = match form.0.try_into() {
+        Ok(new_subscriber) => new_subscriber,
         Err(_) => return HttpResponse::BadRequest().finish(),
-    };
-
-    let email = match SubscriberEmail::parse(form.0.email) {
-        Ok(name) => name,
-        Err(_) => return HttpResponse::BadRequest().finish(),
-    };
-
-    let new_subscriber = NewSubscriber {
-        email: email,
-        name: name,
     };
 
     match insert(&pool, &new_subscriber).await {
