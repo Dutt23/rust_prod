@@ -55,7 +55,7 @@ impl DatabaseSettings {
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let base_path = std::env::current_dir().expect("Failed to determine the current directory");
-    let config_directory = base_path.join("configuration");
+    let config_directory = base_path.join("configurations");
     // Add configuration values from a file named `configuration`.
     // It will look for any top-level file with an extension
     // that `config` knows how to parse: yaml, json, etc.
