@@ -45,12 +45,6 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
     let test_app = spawn_app().await;
     let client = reqwest::Client::new();
 
-    let settings = get_configuration().expect("Unable to read configuration files");
-    let connection_string = settings.database.get_connection_string();
-    let mut connection = PgConnection::connect(&connection_string)
-        .await
-        .expect("Unable to connect to database");
-
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     let response = client
         .post(format!("{}/subscriptions", &test_app.address))
@@ -61,7 +55,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
         .expect("Failed to execute request.");
 
     let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
-        .fetch_one(&mut connection)
+        .fetch_one(&test_app.db_pool)
         .await
         .expect("Failed to fetch saved subscription.");
 
