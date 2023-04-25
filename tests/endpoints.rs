@@ -121,7 +121,7 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
     // The first time `initialize` is invoked the code in `TRACING` is executed. // All other invocations will instead skip execution.
     Lazy::force(&TRACING);
 
-    let mut connection = PgConnection::connect(&config.get_connection_string_without_db_name())
+    let mut connection = PgConnection::connect_with(&config.without_db())
         .await
         .expect("Failed to connect to Postgres.");
 
@@ -131,7 +131,7 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to create database.");
 
     // Migrate database
-    let connection_pool = PgPool::connect(&config.get_connection_string())
+    let connection_pool = PgPool::connect_with(config.with_db())
         .await
         .expect("Failed to connect to Postgres.");
 

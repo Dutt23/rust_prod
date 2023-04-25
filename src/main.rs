@@ -10,8 +10,7 @@ use std::net::TcpListener;
 async fn main() -> std::io::Result<()> {
     let settings = get_configuration().expect("Unable to read configuration files");
 
-    let connection_pool = PgPool::connect_lazy(&settings.database.get_connection_string())
-        .expect("Failed to connect to Postgres.");
+    let connection_pool = PgPool::connect_lazy_with(settings.database.with_db());
 
     let listener = TcpListener::bind(format!("127.0.0.1:{}", settings.application.port))?;
     let subscriber = get_subscriber("news_letter".into(), "info".into(), std::io::stdout);
