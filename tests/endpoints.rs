@@ -1,7 +1,9 @@
 use news_letter::{
     configuration::{get_configuration, DatabaseSettings},
     startup::run,
+    telemetry::{get_subscriber, init_subscriber},
 };
+use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
 use uuid::Uuid;
@@ -10,6 +12,12 @@ pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
 }
+
+// Ensure that the `tracing` stack is only initialised once using `once_cell`
+static TRACING: Lazy<()> = Lazy::new(|| {
+    let subscriber = get_subscriber("test".into(), "debug".into());
+    init_subscriber(subscriber);
+});
 
 /// tests/endpoints.rs
 // `tokio::test` is the testing equivalent of `tokio::main`.
@@ -111,6 +119,9 @@ async fn spawn_app() -> TestApp {
 }
 
 async fn configure_database(config: &DatabaseSettings) -> PgPool {
+    // The first time `initialize` is invoked the code in `TRACING` is executed. // All other invocations will instead skip execution.
+    Lazy::force(&TRACING);
+
     let mut connection = PgConnection::connect(&config.get_connection_string_without_db_name())
         .await
         .expect("Failed to connect to Postgres.");

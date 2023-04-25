@@ -12,9 +12,6 @@ pub fn get_subscriber(name: String, env_filter: String) -> impl Subscriber + Sen
         // Output the formatted spans to stdout.
         std::io::stdout,
     );
-
-    let subscriber = get_subscriber("zero2prod".into(), "info".into());
-    init_subscriber(subscriber);
     // The `with` method is provided by `SubscriberExt`, an extension // trait for `Subscriber` exposed by `tracing_subscriber`
     Registry::default()
         .with(env_filter)

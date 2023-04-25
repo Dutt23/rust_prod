@@ -1344,6 +1344,7 @@ dependencies = [
  "env_logger",
  "log",
  "migrate",
+ "once_cell",
  "postgres",
  "reqwest",
  "serde",
