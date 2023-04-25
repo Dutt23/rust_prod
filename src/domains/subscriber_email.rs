@@ -21,7 +21,7 @@ impl AsRef<str> for SubscriberEmail {
 #[cfg(test)]
 mod tests {
     use crate::domains::SubscriberEmail;
-    use claims::{assert_err, assert_ok};
+    use claims::assert_err;
 
     #[test]
     fn empty_string_is_rejected() {
