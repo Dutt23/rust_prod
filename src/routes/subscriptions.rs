@@ -3,6 +3,8 @@ use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::{NewSubscriber, SubscriberName};
+
 #[derive(serde::Deserialize)]
 pub struct FormData {
     email: String,
@@ -14,7 +16,12 @@ pub struct FormData {
 #[tracing::instrument(name = "Adding a new subscriber.", skip(form, pool), fields(subscriber_email = %form.email, subscriber_name= %form.name))]
 #[post("/subscriptions")]
 async fn subscriptions(form: web::Form<FormData>, pool: web::Data<PgPool>) -> impl Responder {
-    match insert(&pool, &form).await {
+    let new_subscriber = NewSubscriber {
+        email: form.0.email,
+        name: SubscriberName::parse(form.0.name),
+    };
+
+    match insert(&pool, &new_subscriber).await {
         Ok(_) => {
             tracing::info!("New subscriber details have been saved");
             HttpResponse::Ok().finish()
@@ -28,16 +35,16 @@ async fn subscriptions(form: web::Form<FormData>, pool: web::Data<PgPool>) -> im
 
 #[tracing::instrument(
     name = "Saving new subscriber details in the database",
-    skip(form, pool)
+    skip(new_subscriber, pool)
 )]
-pub async fn insert(pool: &PgPool, form: &FormData) -> Result<(), sqlx::Error> {
+pub async fn insert(pool: &PgPool, new_subscriber: &NewSubscriber) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
    INSERT INTO subscriptions (id, email, name, subscribed_at) VALUES ($1, $2, $3, $4)
    "#,
         Uuid::new_v4(),
-        form.email,
-        form.name,
+        new_subscriber.email,
+        new_subscriber.name.as_ref(),
         Utc::now()
     )
     // We use `get_ref` to get an immutable reference to the `PgConnection`
