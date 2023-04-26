@@ -141,6 +141,7 @@ async fn spawn_app() -> TestApp {
         settings.email_client.base_url,
         SubscriberEmail::parse(settings.email_client.sender_email)
             .expect("Unable to parse sender email"),
+        settings.email_client.authorization_token,
     );
 
     let connection_pool = configure_database(&settings.database).await;

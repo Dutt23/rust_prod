@@ -16,7 +16,11 @@ async fn main() -> std::io::Result<()> {
         .email_client
         .sender()
         .expect("Unable to get sender email");
-    let email_client = EmailClient::new(settings.email_client.base_url, sender_email);
+    let email_client = EmailClient::new(
+        settings.email_client.base_url,
+        sender_email,
+        settings.email_client.authorization_token,
+    );
 
     let listener = TcpListener::bind(format!("127.0.0.1:{}", settings.application.port))?;
     let subscriber = get_subscriber("news_letter".into(), "info".into(), std::io::stdout);
