@@ -1,5 +1,7 @@
 use news_letter::{
     configuration::{get_configuration, DatabaseSettings},
+    domains::SubscriberEmail,
+    email_client::EmailClient,
     startup::run,
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -135,8 +137,15 @@ async fn spawn_app() -> TestApp {
     let mut settings = get_configuration().expect("Unable to read configuration files");
     settings.database.database_name = Uuid::new_v4().to_string();
 
+    let email_client = EmailClient::new(
+        settings.email_client.base_url,
+        SubscriberEmail::parse(settings.email_client.sender_email)
+            .expect("Unable to parse sender email"),
+    );
+
     let connection_pool = configure_database(&settings.database).await;
-    let server = run(listener, connection_pool.clone()).expect("Failed to bind address");
+    let server =
+        run(listener, connection_pool.clone(), email_client).expect("Failed to bind address");
     let _ = tokio::spawn(server);
     std::env::set_var("RUST_BACKTRACE", "1");
 
