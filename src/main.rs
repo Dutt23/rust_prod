@@ -16,10 +16,13 @@ async fn main() -> std::io::Result<()> {
         .email_client
         .sender()
         .expect("Unable to get sender email");
+
+    let timeout = settings.email_client.timeout();
     let email_client = EmailClient::new(
         settings.email_client.base_url,
         sender_email,
         settings.email_client.authorization_token,
+        timeout,
     );
 
     let listener = TcpListener::bind(format!("127.0.0.1:{}", settings.application.port))?;

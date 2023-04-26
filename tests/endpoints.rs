@@ -137,11 +137,13 @@ async fn spawn_app() -> TestApp {
     let mut settings = get_configuration().expect("Unable to read configuration files");
     settings.database.database_name = Uuid::new_v4().to_string();
 
+    let timeout = settings.email_client.timeout();
     let email_client = EmailClient::new(
         settings.email_client.base_url,
         SubscriberEmail::parse(settings.email_client.sender_email)
             .expect("Unable to parse sender email"),
         settings.email_client.authorization_token,
+        timeout,
     );
 
     let connection_pool = configure_database(&settings.database).await;
