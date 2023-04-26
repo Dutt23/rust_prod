@@ -11,12 +11,13 @@ pub struct EmailClient {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct SendEmailRequest {
-    from: String,
-    to: String,
-    subject: String,
-    html_body: String,
-    text_body: String,
+#[serde(rename_all = "PascalCase")]
+struct SendEmailRequest<'a> {
+    from: &'a str,
+    to: &'a str,
+    subject: &'a str,
+    html_body: &'a str,
+    text_body: &'a str,
 }
 
 impl EmailClient {
@@ -42,11 +43,11 @@ impl EmailClient {
     ) -> Result<(), reqwest::Error> {
         let url = format!("{}/email", self.base_url);
         let request_body = SendEmailRequest {
-            to: recipient.as_ref().to_owned(),
-            from: self.sender_email.as_ref().to_owned(),
-            subject: subject.to_string(),
-            html_body: html_content.to_string(),
-            text_body: text_content.to_string(),
+            to: recipient.as_ref(),
+            from: self.sender_email.as_ref(),
+            subject: subject,
+            html_body: html_content,
+            text_body: text_content,
         };
 
         self.client
@@ -67,6 +68,7 @@ impl EmailClient {
 mod tests {
 
     use crate::email_client::EmailClient;
+    use claims::assert_ok;
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::{Paragraph, Sentence};
     use fake::{Fake, Faker};
@@ -113,8 +115,10 @@ mod tests {
         let subject: String = Sentence(1..2).fake();
         let paragraph: String = Paragraph(1..20).fake();
 
-        let _ = email_client
+        let outcome = email_client
             .send_email(subscriber_email, &subject, &paragraph, &paragraph)
             .await;
+
+        assert_ok!(outcome);
     }
 }
