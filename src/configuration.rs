@@ -6,12 +6,20 @@ use sqlx::{
     ConnectOptions,
 };
 
+use crate::{domains::SubscriberEmail, email_client::EmailClient};
+
 #[derive(serde::Deserialize)]
 pub struct Settings {
     pub application: ApplicationSettings,
     pub database: DatabaseSettings,
+    pub email_client: EmailClientSettings,
 }
 
+#[derive(serde::Deserialize)]
+pub struct EmailClientSettings {
+    pub base_url: String,
+    pub sender_email: String,
+}
 #[derive(serde::Deserialize)]
 pub struct DatabaseSettings {
     pub username: String,
@@ -103,5 +111,11 @@ impl TryFrom<String> for Environment {
                 other
             )),
         }
+    }
+}
+
+impl EmailClientSettings {
+    pub fn sender(&self) -> Result<SubscriberEmail, String> {
+        SubscriberEmail::parse(self.sender_email.clone())
     }
 }
