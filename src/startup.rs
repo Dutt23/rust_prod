@@ -1,4 +1,4 @@
-use crate::email_client::{self, EmailClient};
+use crate::email_client::EmailClient;
 use crate::routes::{health_check, subscriptions};
 
 use actix_web::dev::Server;
