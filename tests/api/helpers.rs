@@ -32,13 +32,15 @@ pub async fn spawn_app() -> TestApp {
         let mut config = get_configuration().expect("Unable to read configuration files");
         config.database.database_name = Uuid::new_v4().to_string();
         // Use random os port
-        config.database.port = 0;
+        config.application.port = 0;
         config
     };
 
     let app = Application::build(&configuration)
         .await
         .expect("Failed to build application");
+
+    configure_database(&configuration.database).await;
     let address = format!("http://127.0.0.1:{}", app.port());
     let _ = tokio::spawn(app.run_until_stopped());
 
