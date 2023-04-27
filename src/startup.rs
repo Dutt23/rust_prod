@@ -1,13 +1,56 @@
+use crate::configuration::Settings;
 use crate::email_client::EmailClient;
 use crate::routes::{health_check, subscriptions};
-
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
+use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
 
-pub fn run(
+pub struct Application {
+    server: Server,
+    port: u16,
+}
+
+impl Application {
+    pub async fn build(settings: &Settings) -> Result<Self, std::io::Error> {
+        let connection_pool = get_connection_pool(settings);
+        let sender_email = settings
+            .email_client
+            .sender()
+            .expect("Unable to get sender email");
+
+        let timeout = settings.email_client.timeout();
+        let email_client = EmailClient::new(
+            settings.email_client.base_url.to_owned(),
+            sender_email,
+            settings.email_client.authorization_token.to_owned(),
+            timeout,
+        );
+        let listener = TcpListener::bind(format!("127.0.0.1:{}", settings.application.port))?;
+        let port = listener.local_addr().unwrap().port();
+        let server = run(listener, connection_pool, email_client)?;
+
+        Ok(Self { port, server })
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    pub async fn run_until_stopped(self) -> Result<(), std::io::Error> {
+        self.server.await
+    }
+}
+
+pub fn get_connection_pool(settings: &Settings) -> PgPool {
+    PgPoolOptions::new()
+        .acquire_timeout(std::time::Duration::from_secs(2))
+        .connect_lazy_with(settings.database.with_db())
+}
+
+fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
