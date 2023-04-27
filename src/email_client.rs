@@ -87,7 +87,6 @@ mod tests {
     impl Match for SendEmailRequestBodyMatcher {
         fn matches(&self, request: &Request) -> bool {
             let result: Result<serde_json::Value, _> = serde_json::from_slice(&request.body);
-            // dbg!(&result);
             if let Ok(body) = result {
                 body.get("From").is_some()
                     && body.get("To").is_some()
@@ -139,8 +138,6 @@ mod tests {
         let outcome = email_client
             .send_email(email(), &subject(), &paragraph(), &paragraph())
             .await;
-
-        dbg!(&outcome);
         assert_ok!(outcome);
     }
 
@@ -158,7 +155,6 @@ mod tests {
         let outcome = email_client
             .send_email(email(), &subject(), &paragraph(), &paragraph())
             .await;
-        dbg!(&outcome);
         assert_err!(outcome);
     }
 

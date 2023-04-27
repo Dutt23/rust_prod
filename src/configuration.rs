@@ -13,6 +13,7 @@ pub struct Settings {
     pub application: ApplicationSettings,
     pub database: DatabaseSettings,
     pub email_client: EmailClientSettings,
+    pub env: String,
 }
 
 #[derive(serde::Deserialize)]
@@ -82,15 +83,20 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .add_source(File::from(config_directory.join("base.yaml")))
         .add_source(File::from(config_directory.join(env_file_name)))
         .add_source(config::Environment::with_prefix("app").separator("__"))
+        .set_default("env", environment.as_str())
+        .unwrap()
         .build()
         .expect("Unable to deserialize config values");
 
     return config.try_deserialize::<Settings>();
 }
 
+#[derive(serde::Deserialize, Debug)]
+
 pub enum Environment {
     Local,
     Production,
+    Test,
 }
 
 impl Environment {
@@ -98,6 +104,7 @@ impl Environment {
         match self {
             Environment::Local => "local",
             Environment::Production => "production",
+            Environment::Test => "test",
         }
     }
 }
@@ -109,6 +116,7 @@ impl TryFrom<String> for Environment {
         match s.to_lowercase().as_str() {
             "local" => Ok(Self::Local),
             "production" => Ok(Self::Production),
+            "test" => Ok(Self::Test),
             other => Err(format!(
                 "{} not a suppported environment. Use either `local` or `production`",
                 other

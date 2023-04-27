@@ -37,6 +37,9 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 pub async fn spawn_app() -> TestApp {
     Lazy::force(&TRACING);
 
+    std::env::set_var("RUST_BACKTRACE", "1");
+    std::env::set_var("APP_ENVIRONMENT", "test");
+
     let configuration = {
         let mut config = get_configuration().expect("Unable to read configuration files");
         config.database.database_name = Uuid::new_v4().to_string();
@@ -52,8 +55,6 @@ pub async fn spawn_app() -> TestApp {
     configure_database(&configuration.database).await;
     let address = format!("http://127.0.0.1:{}", app.port());
     let _ = tokio::spawn(app.run_until_stopped());
-
-    std::env::set_var("RUST_BACKTRACE", "1");
 
     TestApp {
         address,
