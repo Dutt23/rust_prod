@@ -6,10 +6,12 @@ use news_letter::{
 use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
+use wiremock::MockServer;
 
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
+    pub email_server: MockServer,
 }
 
 impl TestApp {
@@ -40,11 +42,13 @@ pub async fn spawn_app() -> TestApp {
     std::env::set_var("RUST_BACKTRACE", "1");
     std::env::set_var("APP_ENVIRONMENT", "test");
 
+    let email_server = MockServer::start().await;
     let configuration = {
         let mut config = get_configuration().expect("Unable to read configuration files");
         config.database.database_name = Uuid::new_v4().to_string();
         // Use random os port
         config.application.port = 0;
+        config.email_client.base_url = email_server.uri();
         config
     };
 
@@ -59,6 +63,7 @@ pub async fn spawn_app() -> TestApp {
     TestApp {
         address,
         db_pool: get_connection_pool(&configuration),
+        email_server,
     }
 }
 

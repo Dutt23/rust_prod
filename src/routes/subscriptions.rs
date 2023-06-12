@@ -3,7 +3,10 @@ use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domains::{NewSubscriber, SubscriberEmail, SubscriberName};
+use crate::{
+    domains::{NewSubscriber, SubscriberEmail, SubscriberName},
+    email_client::EmailClient,
+};
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -23,24 +26,37 @@ impl TryFrom<FormData> for NewSubscriber {
 
 // Spans, like logs, have an associated level // `info_span` creates a span at the info-level
 // See the following section on `Instrumenting Futures`
-#[tracing::instrument(name = "Adding a new subscriber.", skip(form, pool), fields(subscriber_email = %form.email, subscriber_name= %form.name))]
+#[tracing::instrument(name = "Adding a new subscriber.", skip(form, pool,  email_client), fields(subscriber_email = %form.email, subscriber_name= %form.name))]
 #[post("/subscriptions")]
-async fn subscriptions(form: web::Form<FormData>, pool: web::Data<PgPool>) -> impl Responder {
+async fn subscriptions(
+    form: web::Form<FormData>,
+    pool: web::Data<PgPool>,
+    email_client: web::Data<EmailClient>,
+) -> impl Responder {
     let new_subscriber = match form.0.try_into() {
         Ok(new_subscriber) => new_subscriber,
         Err(_) => return HttpResponse::BadRequest().finish(),
     };
 
-    match insert(&pool, &new_subscriber).await {
-        Ok(_) => {
-            tracing::info!("New subscriber details have been saved");
-            HttpResponse::Ok().finish()
-        }
-        Err(err) => {
-            tracing::error!("Error occured while saving : {}", err);
-            HttpResponse::InternalServerError().finish()
-        }
+    if insert(&pool, &new_subscriber).await.is_err() {
+        return HttpResponse::InternalServerError().finish();
     }
+
+    tracing::info!("New subscriber details have been saved");
+
+    if email_client
+        .send_email(
+            new_subscriber.email,
+            "Welcome!",
+            "Welcome to our news letter",
+            "Welcome to our news letter",
+        )
+        .await
+        .is_err()
+    {
+        HttpResponse::InternalServerError().finish();
+    }
+    HttpResponse::Ok().finish()
 }
 
 #[tracing::instrument(
