@@ -57,7 +57,7 @@ async fn subscriptions(
     name = "Sending confirmation email to customer",
     skip(email_client, new_subscriber)
 )]
-pub async fn send_confirmation_email_to_customer(
+async fn send_confirmation_email_to_customer(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
 ) -> Result<(), reqwest::Error> {

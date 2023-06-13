@@ -1,6 +1,6 @@
 use crate::configuration::Settings;
 use crate::email_client::EmailClient;
-use crate::routes::{health_check, subscriptions};
+use crate::routes::{confirm, health_check, subscriptions};
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
 use sqlx::postgres::PgPoolOptions;
@@ -55,6 +55,7 @@ fn run(
     db_pool: PgPool,
     email_client: EmailClient,
 ) -> Result<Server, std::io::Error> {
+    // TODO: https://stackoverflow.com/questions/71497831/is-there-a-way-to-split-server-routes-declaration-in-actix-web
     // Wraps it in an Arc
     let conn = web::Data::new(db_pool);
     let e_client = web::Data::new(email_client);
@@ -65,6 +66,7 @@ fn run(
             .app_data(e_client.clone())
             .service(subscriptions)
             .service(health_check)
+            .service(confirm)
     })
     .listen(listener)?
     .run();
