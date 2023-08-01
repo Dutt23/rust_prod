@@ -16,6 +16,11 @@ pub struct TestApp {
     pub app_port: u16,
 }
 
+pub struct ConfirmationLink {
+    pub html: Url,
+    pub plain_text: Url,
+}
+
 impl TestApp {
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
         reqwest::Client::new()
@@ -27,7 +32,16 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub fn get_links(&self, s: &str) -> Url {
+    pub fn get_confirmation_links(&self, email_req: &wiremock::Request) -> ConfirmationLink {
+        let body: serde_json::Value = serde_json::from_slice(&email_req.body).unwrap();
+
+        ConfirmationLink {
+            html: self.get_links(&body["HtmlBody"].as_str().unwrap()),
+            plain_text: self.get_links(&body["TextBody"].as_str().unwrap()),
+        }
+    }
+
+    fn get_links(&self, s: &str) -> Url {
         let links: Vec<_> = linkify::LinkFinder::new()
             .links(s)
             .filter(|l| *l.kind() == linkify::LinkKind::Url)

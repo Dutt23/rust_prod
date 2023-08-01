@@ -30,11 +30,31 @@ async fn the_link_returned_by_subscribe_returns_a_200_if_called() {
     app.post_subscriptions(body.into()).await;
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
 
-    let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
-
-    let confirmation_link = app.get_links(&body["HtmlBody"].as_str().unwrap());
-    let response = reqwest::get(format!("{}?subscription_token=mytoken", confirmation_link))
-        .await
-        .unwrap();
+    let confirmation_link = app.get_confirmation_links(&email_request);
+    let response = reqwest::get(format!(
+        "{}?subscription_token=mytoken",
+        confirmation_link.html
+    ))
+    .await
+    .unwrap();
     assert_eq!(response.status().as_u16(), 200);
+}
+
+#[tokio::test]
+async fn subscribe_sends_a_confirmation_email_with_a_link() {
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into()).await;
+    let email_request = &app.email_server.received_requests().await.unwrap()[0];
+
+    let confirmation_link = app.get_confirmation_links(&email_request);
+
+    assert_eq!(confirmation_link.html, confirmation_link.plain_text);
 }
