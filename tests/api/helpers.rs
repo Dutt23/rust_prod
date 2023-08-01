@@ -4,6 +4,7 @@ use news_letter::{
     telemetry::{get_subscriber, init_subscriber},
 };
 use once_cell::sync::Lazy;
+use reqwest::Url;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
@@ -24,6 +25,19 @@ impl TestApp {
             .send()
             .await
             .expect("Failed to execute request.")
+    }
+
+    pub fn get_links(&self, s: &str) -> Url {
+        let links: Vec<_> = linkify::LinkFinder::new()
+            .links(s)
+            .filter(|l| *l.kind() == linkify::LinkKind::Url)
+            .collect();
+        assert_eq!(links.len(), 1);
+        let raw_link = links[0].as_str().to_owned();
+        let mut confirmation_link = Url::parse(&raw_link).unwrap();
+        assert_eq!(confirmation_link.host_str().unwrap(), "127.0.0.1");
+        confirmation_link.set_port(Some(self.app_port)).unwrap();
+        confirmation_link
     }
 }
 

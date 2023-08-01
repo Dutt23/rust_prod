@@ -32,20 +32,7 @@ async fn the_link_returned_by_subscribe_returns_a_200_if_called() {
 
     let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
 
-    let get_links = |s: &str| {
-        let links: Vec<_> = linkify::LinkFinder::new()
-            .links(s)
-            .filter(|l| *l.kind() == linkify::LinkKind::Url)
-            .collect();
-        assert_eq!(links.len(), 1);
-        let raw_link = links[0].as_str().to_owned();
-        let mut confirmation_link = Url::parse(&raw_link).unwrap();
-        assert_eq!(confirmation_link.host_str().unwrap(), "127.0.0.1");
-        confirmation_link.set_port(Some(app.app_port)).unwrap();
-        confirmation_link
-    };
-
-    let confirmation_link = get_links(&body["HtmlBody"].as_str().unwrap());
+    let confirmation_link = app.get_links(&body["HtmlBody"].as_str().unwrap());
     let response = reqwest::get(format!("{}?subscription_token=mytoken", confirmation_link))
         .await
         .unwrap();
