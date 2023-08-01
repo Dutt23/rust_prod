@@ -54,3 +54,6 @@ DB_PORT="${POSTGRES_PORT:=5430}"
 export DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}
 sqlx database create
 sqlx migrate run
+
+# For running postgres docker locally
+# docker pull postgres && docker run --name postgres -p 5430:5432 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret -d postgres
