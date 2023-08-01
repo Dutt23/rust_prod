@@ -6,6 +6,7 @@ use uuid::Uuid;
 use crate::{
     domains::{NewSubscriber, SubscriberEmail, SubscriberName},
     email_client::EmailClient,
+    startup::ApplicationBaseUrl,
 };
 
 #[derive(serde::Deserialize)]
@@ -26,12 +27,13 @@ impl TryFrom<FormData> for NewSubscriber {
 
 // Spans, like logs, have an associated level // `info_span` creates a span at the info-level
 // See the following section on `Instrumenting Futures`
-#[tracing::instrument(name = "Adding a new subscriber.", skip(form, pool,  email_client), fields(subscriber_email = %form.email, subscriber_name= %form.name))]
+#[tracing::instrument(name = "Adding a new subscriber.", skip(form, pool,  email_client, base_url), fields(subscriber_email = %form.email, subscriber_name= %form.name))]
 #[post("/subscriptions")]
 async fn subscriptions(
     form: web::Form<FormData>,
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
+    base_url: web::Data<ApplicationBaseUrl>,
 ) -> impl Responder {
     let new_subscriber = match form.0.try_into() {
         Ok(new_subscriber) => new_subscriber,
@@ -44,7 +46,7 @@ async fn subscriptions(
 
     tracing::info!("New subscriber details have been saved");
 
-    if send_confirmation_email_to_customer(&email_client, new_subscriber)
+    if send_confirmation_email_to_customer(&email_client, new_subscriber, &base_url.0)
         .await
         .is_err()
     {
@@ -60,8 +62,9 @@ async fn subscriptions(
 async fn send_confirmation_email_to_customer(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
+    base_url: &String,
 ) -> Result<(), reqwest::Error> {
-    let confirmation_link = "https://my-api.com/subscriptions/confirm";
+    let confirmation_link = &format!("{base_url}/subscriptions/confirm");
     let plain_body = &format!(
         "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
         confirmation_link

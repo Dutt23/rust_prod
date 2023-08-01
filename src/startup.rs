@@ -30,7 +30,12 @@ impl Application {
         );
         let listener = TcpListener::bind(format!("127.0.0.1:{}", settings.application.port))?;
         let port = listener.local_addr().unwrap().port();
-        let server = run(listener, connection_pool, email_client)?;
+        let server = run(
+            listener,
+            connection_pool,
+            email_client,
+            settings.application.base_url.to_owned(),
+        )?;
 
         Ok(Self { port, server })
     }
@@ -50,20 +55,25 @@ pub fn get_connection_pool(settings: &Settings) -> PgPool {
         .connect_lazy_with(settings.database.with_db())
 }
 
+pub struct ApplicationBaseUrl(pub String);
+
 fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
+    base_url: String,
 ) -> Result<Server, std::io::Error> {
     // TODO: https://stackoverflow.com/questions/71497831/is-there-a-way-to-split-server-routes-declaration-in-actix-web
     // Wraps it in an Arc
     let conn = web::Data::new(db_pool);
     let e_client = web::Data::new(email_client);
+    let base_url = web::Data::new(ApplicationBaseUrl(base_url.clone()));
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
             .app_data(conn.clone())
             .app_data(e_client.clone())
+            .app_data(base_url.clone())
             .service(subscriptions)
             .service(health_check)
             .service(confirm)
