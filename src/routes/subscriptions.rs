@@ -46,7 +46,7 @@ async fn subscriptions(
 
     tracing::info!("New subscriber details have been saved");
 
-    if send_confirmation_email_to_customer(&email_client, new_subscriber, &base_url.0)
+    if send_confirmation_email_to_customer(&email_client, new_subscriber, &base_url.0, "mytoken")
         .await
         .is_err()
     {
@@ -63,8 +63,10 @@ async fn send_confirmation_email_to_customer(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
     base_url: &String,
+    subscription_token: &str,
 ) -> Result<(), reqwest::Error> {
-    let confirmation_link = &format!("{base_url}/subscriptions/confirm");
+    let confirmation_link =
+        &format!("{base_url}/subscriptions/confirm?subscription_token={subscription_token}");
     let plain_body = &format!(
         "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
         confirmation_link
