@@ -128,7 +128,7 @@ pub async fn insert(pool: &PgPool, new_subscriber: &NewSubscriber) -> Result<Uui
         err
     })?;
 
-    Ok((subscription_id))
+    Ok(subscription_id)
 }
 
 #[tracing::instrument(
