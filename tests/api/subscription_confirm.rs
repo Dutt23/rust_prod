@@ -71,14 +71,11 @@ async fn clicking_on_the_confirmation_link_confirms_a_subscriber() {
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
     let confirmation_link = app.get_confirmation_links(&email_request);
 
-    reqwest::get(format!(
-        "{}?subscription_token=mytoken",
-        confirmation_link.html
-    ))
-    .await
-    .unwrap()
-    .error_for_status()
-    .unwrap();
+    reqwest::get(format!("{}", confirmation_link.html))
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
 
     let saved = sqlx::query!("SELECT email, name, status FROM subscriptions",)
         .fetch_one(&app.db_pool)
