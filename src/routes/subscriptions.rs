@@ -3,11 +3,11 @@ use crate::{
     email_client::EmailClient,
     startup::ApplicationBaseUrl,
 };
-use actix_web::{post, web, HttpResponse, Responder};
+use actix_web::{post, web, HttpResponse, Responder, ResponseError};
 use chrono::Utc;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{Error, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 #[derive(serde::Deserialize)]
