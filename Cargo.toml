@@ -11,6 +11,7 @@ path = "src/lib.rs"
 
 [dependencies]
 actix-web = "4.3.1"
+anyhow = "1.0.72"
 chrono = "0.4.24"
 config = "0.13.3"
 env_logger = "0.10.0"
