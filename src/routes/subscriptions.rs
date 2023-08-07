@@ -24,10 +24,15 @@ pub struct StoreTokenError(sqlx::Error);
 
 impl std::fmt::Display for SubscribeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "A internal error occurred while trying to initialize your subscription"
-        )
+        match self {
+            SubscribeError::ValidationError(e) => write!(f, "Validation failure {}", e),
+            SubscribeError::DatabaseError(_) => write!(f, "????"),
+            SubscribeError::StoreTokenError(_) => write!(
+                f,
+                "Failed to store the confirmation token for a new subscriber."
+            ),
+            SubscribeError::SendEmailError(_) => write!(f, "Unable to send confirmation email"),
+        }
     }
 }
 
@@ -55,7 +60,16 @@ impl From<sqlx::Error> for SubscribeError {
     }
 }
 
-impl std::error::Error for SubscribeError {}
+impl std::error::Error for SubscribeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            SubscribeError::ValidationError(_) => None,
+            SubscribeError::DatabaseError(e) => Some(e),
+            SubscribeError::SendEmailError(e) => Some(e),
+            SubscribeError::StoreTokenError(e) => Some(&e.0),
+        }
+    }
+}
 
 impl ResponseError for SubscribeError {
     fn status_code(&self) -> reqwest::StatusCode {
