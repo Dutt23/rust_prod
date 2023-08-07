@@ -3,12 +3,26 @@ use crate::{
     email_client::EmailClient,
     startup::ApplicationBaseUrl,
 };
-use actix_web::{post, web, HttpResponse, Responder};
+use actix_web::{post, web, HttpResponse, ResponseError};
 use chrono::Utc;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
+
+#[derive(Debug)]
+pub struct SubscriptionError(sqlx::Error);
+
+impl std::fmt::Display for SubscriptionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "A internal error occurred while trying to initialize your subscription"
+        )
+    }
+}
+
+impl ResponseError for SubscriptionError {}
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -43,33 +57,28 @@ async fn subscriptions(
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
     base_url: web::Data<ApplicationBaseUrl>,
-) -> impl Responder {
+) -> Result<HttpResponse, actix_web::Error> {
     let new_subscriber = match form.0.try_into() {
         Ok(new_subscriber) => new_subscriber,
-        Err(_) => return HttpResponse::BadRequest().finish(),
+        Err(_) => return Ok(HttpResponse::BadRequest().finish()),
     };
 
     let subscription_token = generate_subscription_token();
 
     let mut transaction = match pool.begin().await {
         Ok(transaction) => transaction,
-        Err(_) => return HttpResponse::BadRequest().finish(),
+        Err(_) => return Ok(HttpResponse::BadRequest().finish()),
     };
 
     let subscription_id = match insert(&new_subscriber, &mut transaction).await {
         Ok(subscription_id) => subscription_id,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
+        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
-    if store_token(&subscription_id, &subscription_token, &mut transaction)
-        .await
-        .is_err()
-    {
-        return HttpResponse::InternalServerError().finish();
-    }
+    store_token(&subscription_id, &subscription_token, &mut transaction).await?;
 
     if transaction.commit().await.is_err() {
-        return HttpResponse::InternalServerError().finish();
+        return Ok(HttpResponse::InternalServerError().finish());
     }
 
     tracing::info!("New subscriber details have been saved");
@@ -82,9 +91,9 @@ async fn subscriptions(
     .await
     .is_err()
     {
-        HttpResponse::InternalServerError().finish();
+        return Ok(HttpResponse::InternalServerError().finish());
     }
-    HttpResponse::Ok().finish()
+    Ok(HttpResponse::Ok().finish())
 }
 
 #[tracing::instrument(
@@ -151,7 +160,7 @@ pub async fn store_token(
     subscription_id: &Uuid,
     subscription_token: &String,
     transaction: &mut Transaction<'_, Postgres>,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), SubscriptionError> {
     sqlx::query!(
         r#"INSERT into subscription_tokens (subscription_token, subscription_id) VALUES ($1, $2)"#,
         subscription_token,
@@ -161,7 +170,7 @@ pub async fn store_token(
     .await
     .map_err(|err| {
         tracing::error!("Error happened while executing query :{:?}", err);
-        err
+        SubscriptionError(err)
     })?;
     Ok(())
 }
