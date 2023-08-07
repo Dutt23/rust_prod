@@ -11,20 +11,23 @@ use reqwest::StatusCode;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
+use anyhow::Context;
+
 #[derive(thiserror::Error, Debug)]
 pub enum SubscribeError {
     #[error("{0}")]
     ValidationError(String),
-    #[error("Failed to store the confirmation token for a new subscriber.")]
-    StoreTokenError(#[from] StoreTokenError),
-    #[error("Failed to send a confirmation email.")]
-    SendEmailError(#[from] reqwest::Error),
-    #[error("Failed to accquire a postgres connection from the pool")]
-    PoolError(#[source] sqlx::Error),
-    #[error("Failed to insert new subscriber in the database.")]
-    InsertSubscriberErrors(#[source] sqlx::Error),
-    #[error("Failed to commit SQL transaction to store a new subscriber.")]
-    TransactionCommitError(#[source] sqlx::Error),
+    #[error(transparent)]
+    UnExceptedError(#[from] anyhow::Error), // #[error("Failed to store the confirmation token for a new subscriber.")]
+                                            // StoreTokenError(#[from] StoreTokenError),
+                                            // #[error("Failed to send a confirmation email.")]
+                                            // SendEmailError(#[from] reqwest::Error),
+                                            // #[error("Failed to accquire a postgres connection from the pool")]
+                                            // PoolError(#[source] sqlx::Error),
+                                            // #[error("Failed to insert new subscriber in the database.")]
+                                            // InsertSubscriberErrors(#[source] sqlx::Error),
+                                            // #[error("Failed to commit SQL transaction to store a new subscriber.")]
+                                            // TransactionCommitError(#[source] sqlx::Error),
 }
 
 #[derive(Debug)]
@@ -49,11 +52,12 @@ impl ResponseError for SubscribeError {
     fn status_code(&self) -> reqwest::StatusCode {
         match self {
             SubscribeError::ValidationError(_) => StatusCode::BAD_REQUEST,
-            SubscribeError::InsertSubscriberErrors(_)
-            | SubscribeError::PoolError(_)
-            | SubscribeError::TransactionCommitError(_)
-            | SubscribeError::StoreTokenError(_)
-            | SubscribeError::SendEmailError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            SubscribeError::UnExceptedError(_) => StatusCode::INTERNAL_SERVER_ERROR
+            // SubscribeError::InsertSubscriberErrors(_)
+            // | SubscribeError::PoolError(_)
+            // | SubscribeError::TransactionCommitError(_)
+            // | SubscribeError::StoreTokenError(_)
+            // | SubscribeError::SendEmailError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -94,20 +98,25 @@ async fn subscriptions(
 ) -> Result<HttpResponse, SubscribeError> {
     let new_subscriber = form.0.try_into().map_err(SubscribeError::ValidationError)?;
     let subscription_token = generate_subscription_token();
-    let mut transaction = pool.begin().await.map_err(SubscribeError::PoolError)?;
+    let mut transaction = pool
+        .begin()
+        .await
+        .context("Failed to acquire a Postgres connection from the pool")?;
 
     let subscription_id = insert(&new_subscriber, &mut transaction)
         .await
-        .map_err(SubscribeError::InsertSubscriberErrors)?;
+        .context("Unable to inert subscriber into database")?;
+    // .map_err(SubscribeError::InsertSubscriberErrors)?;
 
     store_token(&subscription_id, &subscription_token, &mut transaction)
         .await
-        .map_err(SubscribeError::StoreTokenError)?;
+        .context("Unable to store token for subscriber")?;
+    // .map_err(SubscribeError::StoreTokenError)?;
 
     transaction
         .commit()
         .await
-        .map_err(SubscribeError::TransactionCommitError)?;
+        .context("Unable to save transaction")?;
 
     tracing::info!("New subscriber details have been saved");
     send_confirmation_email_to_customer(
@@ -117,7 +126,7 @@ async fn subscriptions(
         &subscription_token,
     )
     .await
-    .map_err(SubscribeError::SendEmailError)?;
+    .context("Failed to send confirmation Email to customer")?;
 
     Ok(HttpResponse::Ok().finish())
 }
