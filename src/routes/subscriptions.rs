@@ -7,6 +7,7 @@ use actix_web::{post, web, HttpResponse, ResponseError};
 use chrono::Utc;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
+use reqwest::StatusCode;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -56,7 +57,16 @@ impl From<sqlx::Error> for SubscribeError {
 
 impl std::error::Error for SubscribeError {}
 
-impl ResponseError for SubscribeError {}
+impl ResponseError for SubscribeError {
+    fn status_code(&self) -> reqwest::StatusCode {
+        match self {
+            SubscribeError::ValidationError(_) => StatusCode::BAD_REQUEST,
+            SubscribeError::DatabaseError(_)
+            | SubscribeError::StoreTokenError(_)
+            | SubscribeError::SendEmailError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -92,41 +102,24 @@ async fn subscriptions(
     email_client: web::Data<EmailClient>,
     base_url: web::Data<ApplicationBaseUrl>,
 ) -> Result<HttpResponse, SubscribeError> {
-    let new_subscriber = match form.0.try_into() {
-        Ok(new_subscriber) => new_subscriber,
-        Err(_) => return Ok(HttpResponse::BadRequest().finish()),
-    };
-
+    let new_subscriber = form.0.try_into()?;
     let subscription_token = generate_subscription_token();
+    let mut transaction = pool.begin().await?;
 
-    let mut transaction = match pool.begin().await {
-        Ok(transaction) => transaction,
-        Err(_) => return Ok(HttpResponse::BadRequest().finish()),
-    };
-
-    let subscription_id = match insert(&new_subscriber, &mut transaction).await {
-        Ok(subscription_id) => subscription_id,
-        Err(_) => return Ok(HttpResponse::InternalServerError().finish()),
-    };
-
+    let subscription_id = insert(&new_subscriber, &mut transaction).await?;
     store_token(&subscription_id, &subscription_token, &mut transaction).await?;
 
-    if transaction.commit().await.is_err() {
-        return Ok(HttpResponse::InternalServerError().finish());
-    }
+    transaction.commit().await?;
 
     tracing::info!("New subscriber details have been saved");
-    if send_confirmation_email_to_customer(
+    send_confirmation_email_to_customer(
         &email_client,
         new_subscriber,
         &base_url.0,
         &subscription_token,
     )
-    .await
-    .is_err()
-    {
-        return Ok(HttpResponse::InternalServerError().finish());
-    }
+    .await?;
+
     Ok(HttpResponse::Ok().finish())
 }
 
