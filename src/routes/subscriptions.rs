@@ -11,65 +11,37 @@ use reqwest::StatusCode;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum SubscribeError {
+    #[error("{0}")]
     ValidationError(String),
-    StoreTokenError(StoreTokenError),
-    SendEmailError(reqwest::Error),
-    PoolError(sqlx::Error),
-    InsertSubscriberErrors(sqlx::Error),
-    TransactionCommitError(sqlx::Error),
+    #[error("Failed to store the confirmation token for a new subscriber.")]
+    StoreTokenError(#[from] StoreTokenError),
+    #[error("Failed to send a confirmation email.")]
+    SendEmailError(#[from] reqwest::Error),
+    #[error("Failed to accquire a postgres connection from the pool")]
+    PoolError(#[source] sqlx::Error),
+    #[error("Failed to insert new subscriber in the database.")]
+    InsertSubscriberErrors(#[source] sqlx::Error),
+    #[error("Failed to commit SQL transaction to store a new subscriber.")]
+    TransactionCommitError(#[source] sqlx::Error),
 }
 
 #[derive(Debug)]
 pub struct StoreTokenError(sqlx::Error);
 
-impl std::fmt::Display for SubscribeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SubscribeError::ValidationError(e) => write!(f, "Validation failure {}", e),
-            SubscribeError::PoolError(_) => write!(f, "Failed to acquire connection"),
-            SubscribeError::InsertSubscriberErrors(_) => write!(f, "Unable to insert subscriber"),
-            SubscribeError::TransactionCommitError(_) => {
-                write!(f, "Unable to commit transaction error")
-            }
-            SubscribeError::StoreTokenError(_) => write!(
-                f,
-                "Failed to store the confirmation token for a new subscriber."
-            ),
-            SubscribeError::SendEmailError(_) => write!(f, "Unable to send confirmation email"),
-        }
-    }
-}
-
-impl From<StoreTokenError> for SubscribeError {
-    fn from(e: StoreTokenError) -> Self {
-        Self::StoreTokenError(e)
-    }
-}
-
-impl From<String> for SubscribeError {
-    fn from(e: String) -> Self {
-        Self::ValidationError(e)
-    }
-}
-
-impl From<reqwest::Error> for SubscribeError {
-    fn from(e: reqwest::Error) -> Self {
-        Self::SendEmailError(e)
-    }
-}
-
-impl std::error::Error for SubscribeError {
+impl std::error::Error for StoreTokenError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            SubscribeError::ValidationError(_) => None,
-            SubscribeError::InsertSubscriberErrors(e)
-            | SubscribeError::PoolError(e)
-            | SubscribeError::TransactionCommitError(e) => Some(e),
-            SubscribeError::SendEmailError(e) => Some(e),
-            SubscribeError::StoreTokenError(e) => Some(&e.0),
-        }
+        Some(&self.0)
+    }
+}
+
+impl std::fmt::Display for StoreTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "A database failure was encountered while trying to store a subscription token."
+        )
     }
 }
 
@@ -120,7 +92,7 @@ async fn subscriptions(
     email_client: web::Data<EmailClient>,
     base_url: web::Data<ApplicationBaseUrl>,
 ) -> Result<HttpResponse, SubscribeError> {
-    let new_subscriber = form.0.try_into()?;
+    let new_subscriber = form.0.try_into().map_err(SubscribeError::ValidationError)?;
     let subscription_token = generate_subscription_token();
     let mut transaction = pool.begin().await.map_err(SubscribeError::PoolError)?;
 
@@ -128,7 +100,9 @@ async fn subscriptions(
         .await
         .map_err(SubscribeError::InsertSubscriberErrors)?;
 
-    store_token(&subscription_id, &subscription_token, &mut transaction).await?;
+    store_token(&subscription_id, &subscription_token, &mut transaction)
+        .await
+        .map_err(SubscribeError::StoreTokenError)?;
 
     transaction
         .commit()
@@ -142,7 +116,8 @@ async fn subscriptions(
         &base_url.0,
         &subscription_token,
     )
-    .await?;
+    .await
+    .map_err(SubscribeError::SendEmailError)?;
 
     Ok(HttpResponse::Ok().finish())
 }
