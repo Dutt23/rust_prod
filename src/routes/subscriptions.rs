@@ -11,9 +11,17 @@ use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 #[derive(Debug)]
-pub struct SubscriptionError(sqlx::Error);
+pub enum SubscribeError {
+    ValidationError(String),
+    DatabaseError(sqlx::Error),
+    StoreTokenError(StoreTokenError),
+    SendEmailError(reqwest::Error),
+}
 
-impl std::fmt::Display for SubscriptionError {
+#[derive(Debug)]
+pub struct StoreTokenError(sqlx::Error);
+
+impl std::fmt::Display for SubscribeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -22,7 +30,33 @@ impl std::fmt::Display for SubscriptionError {
     }
 }
 
-impl ResponseError for SubscriptionError {}
+impl From<StoreTokenError> for SubscribeError {
+    fn from(e: StoreTokenError) -> Self {
+        Self::StoreTokenError(e)
+    }
+}
+
+impl From<String> for SubscribeError {
+    fn from(e: String) -> Self {
+        Self::ValidationError(e)
+    }
+}
+
+impl From<reqwest::Error> for SubscribeError {
+    fn from(e: reqwest::Error) -> Self {
+        Self::SendEmailError(e)
+    }
+}
+
+impl From<sqlx::Error> for SubscribeError {
+    fn from(e: sqlx::Error) -> Self {
+        Self::DatabaseError(e)
+    }
+}
+
+impl std::error::Error for SubscribeError {}
+
+impl ResponseError for SubscribeError {}
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -57,7 +91,7 @@ async fn subscriptions(
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
     base_url: web::Data<ApplicationBaseUrl>,
-) -> Result<HttpResponse, actix_web::Error> {
+) -> Result<HttpResponse, SubscribeError> {
     let new_subscriber = match form.0.try_into() {
         Ok(new_subscriber) => new_subscriber,
         Err(_) => return Ok(HttpResponse::BadRequest().finish()),
@@ -160,7 +194,7 @@ pub async fn store_token(
     subscription_id: &Uuid,
     subscription_token: &String,
     transaction: &mut Transaction<'_, Postgres>,
-) -> Result<(), SubscriptionError> {
+) -> Result<(), StoreTokenError> {
     sqlx::query!(
         r#"INSERT into subscription_tokens (subscription_token, subscription_id) VALUES ($1, $2)"#,
         subscription_token,
@@ -170,7 +204,7 @@ pub async fn store_token(
     .await
     .map_err(|err| {
         tracing::error!("Error happened while executing query :{:?}", err);
-        SubscriptionError(err)
+        StoreTokenError(err)
     })?;
     Ok(())
 }
