@@ -1,6 +1,6 @@
 use crate::configuration::Settings;
 use crate::email_client::EmailClient;
-use crate::routes::{confirm, health_check, subscriptions};
+use crate::routes::{confirm, health_check, publish_newsletter, subscriptions};
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
 use sqlx::postgres::PgPoolOptions;
@@ -77,6 +77,7 @@ fn run(
             .service(subscriptions)
             .service(health_check)
             .service(confirm)
+            .service(publish_newsletter)
     })
     .listen(listener)?
     .run();
