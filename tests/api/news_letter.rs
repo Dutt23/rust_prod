@@ -1,3 +1,9 @@
+use crate::helpers::{spawn_app, ConfirmationLink, TestApp};
+use wiremock::{
+    matchers::{any, method, path},
+    Mock, ResponseTemplate,
+};
+
 #[tokio::test]
 async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     let app = spawn_app().await;
