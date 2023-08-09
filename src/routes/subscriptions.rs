@@ -178,11 +178,7 @@ pub async fn insert(
     // We use `get_ref` to get an immutable reference to the `PgConnection`
     // wrapped by `web::Data`.
     .execute(transaction)
-    .await
-    .map_err(|err| {
-        tracing::error!("Error happened while executing query :{:?}", err);
-        err
-    })?;
+    .await?;
 
     Ok(subscription_id)
 }
@@ -195,17 +191,13 @@ pub async fn store_token(
     subscription_id: &Uuid,
     subscription_token: &String,
     transaction: &mut Transaction<'_, Postgres>,
-) -> Result<(), StoreTokenError> {
+) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"INSERT into subscription_tokens (subscription_token, subscription_id) VALUES ($1, $2)"#,
         subscription_token,
         subscription_id
     )
     .execute(transaction)
-    .await
-    .map_err(|err| {
-        tracing::error!("Error happened while executing query :{:?}", err);
-        StoreTokenError(err)
-    })?;
+    .await?;
     Ok(())
 }
