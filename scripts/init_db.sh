@@ -57,3 +57,4 @@ sqlx migrate run
 
 # For running postgres docker locally
 # docker pull postgres && docker run --name postgres -p 5430:5432 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret -d postgres
+# docker exec -it postgres psql --username=root news_letter

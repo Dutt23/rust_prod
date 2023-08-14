@@ -1,6 +1,6 @@
-use crate::helpers::{spawn_app, ConfirmationLink, TestApp};
+use crate::helpers::spawn_app;
 use wiremock::{
-    matchers::{any, method, path},
+    matchers::{method, path},
     Mock, ResponseTemplate,
 };
 
