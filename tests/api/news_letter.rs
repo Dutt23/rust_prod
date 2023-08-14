@@ -62,6 +62,42 @@ async fn news_letters_are_delivered_to_confirmed_customers() {
     assert_eq!(res.status().as_u16(), 200);
 }
 
+#[tokio::test]
+async fn newsletter_returns_400_for_invalid_data() {
+    let app = spawn_app().await;
+    let test_cases = vec![
+        (
+            serde_json::json!({
+                "content": {
+                    "text" : "News letter text",
+                    "html": "<p> Plain html body </p>"
+                }
+            }),
+            "missing title",
+        ),
+        (
+            serde_json::json!({"title": "News letter"}),
+            "missing content",
+        ),
+    ];
+
+    for (invalid_body, error_message) in test_cases {
+        let res = reqwest::Client::new()
+            .post(format!("{}/newsletter", &app.address))
+            .json(&invalid_body)
+            .send()
+            .await
+            .expect("Unable to send request");
+
+        assert_eq!(
+            res.status().as_u16(),
+            400,
+            "Api did not fail when the error request body was {}",
+            error_message
+        );
+    }
+}
+
 async fn create_confirmed_customers(app: &TestApp) {
     let confirmation_link = create_unconfirmed_subscribers(&app).await;
     let res = reqwest::get(format!("{}", confirmation_link.html))
