@@ -153,7 +153,7 @@ async fn send_confirmation_email_to_customer(
         confirmation_link
     );
     email_client
-        .send_email(new_subscriber.email, "Welcome!", &plain_body, html_body)
+        .send_email(&new_subscriber.email, "Welcome!", &plain_body, html_body)
         .await
 }
 

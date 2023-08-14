@@ -1,7 +1,9 @@
+use crate::{domains::SubscriberEmail, email_client::EmailClient};
 use actix_web::{post, web, HttpResponse, ResponseError};
 use reqwest::StatusCode;
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::PgPool;
 
+//  format! allocates memory on the heap to store its output
 use anyhow::Context;
 
 #[derive(serde::Deserialize)]
@@ -34,25 +36,50 @@ impl ResponseError for PublishError {
     }
 }
 
-#[tracing::instrument(name = "Publish a news letter", skip(_body))]
+#[tracing::instrument(name = "Publish a news letter", skip(news_letter, email_client, pool))]
 #[post("/newsletter")]
 pub async fn publish_newsletter(
-    _body: web::Json<NewsLetter>,
+    news_letter: web::Json<NewsLetter>,
     pool: web::Data<PgPool>,
+    email_client: web::Data<EmailClient>,
 ) -> Result<HttpResponse, PublishError> {
-    let _subscribers = get_confirmed_subscribers(&pool).await?;
+    let subscribers = get_confirmed_subscribers(&pool).await?;
+
+    for subscriber in subscribers {
+        match subscriber {
+            Ok(email) => email_client
+                .send_email(
+                    &email,
+                    &news_letter.title,
+                    &news_letter.content.html,
+                    &news_letter.content.text,
+                )
+                .await
+                .with_context(|| format!("Unable to send email to {}", email.as_ref()))?,
+            Err(error) => {
+                tracing::warn!(
+                    error.error_chain = ?error,
+                    "Skipping confirmed subscriber. \
+                    Their stored contact details are invalid "
+                )
+            }
+        }
+    }
+
     Ok(HttpResponse::Ok().finish())
 }
 
 #[tracing::instrument(name = "Get a list of confirmed subscribers", skip(pool))]
 async fn get_confirmed_subscribers(
     pool: &PgPool,
-) -> Result<Vec<ConfirmedSubscriber>, anyhow::Error> {
-    let rows = sqlx::query_as!(
+) -> Result<Vec<Result<SubscriberEmail, String>>, anyhow::Error> {
+    Ok(sqlx::query_as!(
         ConfirmedSubscriber,
         r#"SELECT email from subscriptions where status = 'confirmed'"#
     )
     .fetch_all(pool)
-    .await?;
-    Ok(rows)
+    .await?
+    .iter()
+    .map(|row| SubscriberEmail::parse(row.email.clone()))
+    .collect())
 }
