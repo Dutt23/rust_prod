@@ -41,7 +41,8 @@ async fn news_letters_are_delivered_to_confirmed_customers() {
     Mock::given(any())
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
-        .mount(&app.email_server);
+        .mount(&app.email_server)
+        .await;
 
     let news_letter_body = serde_json::json!({
         "title": "News letter title",
