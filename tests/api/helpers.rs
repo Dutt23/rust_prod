@@ -53,6 +53,15 @@ impl TestApp {
         confirmation_link.set_port(Some(self.app_port)).unwrap();
         confirmation_link
     }
+
+    pub async fn post_news_letters(&self, json: &serde_json::Value) -> reqwest::Response {
+        reqwest::Client::new()
+            .post(format!("{}/newsletter", &self.address))
+            .json(json)
+            .send()
+            .await
+            .expect("Unable to send request")
+    }
 }
 
 static TRACING: Lazy<()> = Lazy::new(|| {

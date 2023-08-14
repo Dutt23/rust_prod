@@ -23,12 +23,7 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
         }
     });
 
-    let res = reqwest::Client::new()
-        .post(format!("{}/newsletter", &app.address))
-        .json(&news_letter_body)
-        .send()
-        .await
-        .expect("Unable to send request");
+    let res = app.post_news_letters(&news_letter_body).await;
 
     assert_eq!(res.status().as_u16(), 200);
 }
@@ -52,12 +47,7 @@ async fn news_letters_are_delivered_to_confirmed_customers() {
         }
     });
 
-    let res = reqwest::Client::new()
-        .post(format!("{}/newsletter", &app.address))
-        .json(&news_letter_body)
-        .send()
-        .await
-        .expect("Unable to send request");
+    let res = app.post_news_letters(&news_letter_body).await;
 
     assert_eq!(res.status().as_u16(), 200);
 }
@@ -82,12 +72,7 @@ async fn newsletter_returns_400_for_invalid_data() {
     ];
 
     for (invalid_body, error_message) in test_cases {
-        let res = reqwest::Client::new()
-            .post(format!("{}/newsletter", &app.address))
-            .json(&invalid_body)
-            .send()
-            .await
-            .expect("Unable to send request");
+        let res = app.post_news_letters(&invalid_body).await;
 
         assert_eq!(
             res.status().as_u16(),
