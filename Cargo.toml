@@ -12,6 +12,7 @@ path = "src/lib.rs"
 [dependencies]
 actix-web = "4.3.1"
 anyhow = "1.0.72"
+argon2 = { version = "0.5.1", features = ["std"] }
 base64 = "0.21.2"
 chrono = "0.4.24"
 config = "0.13.3"
