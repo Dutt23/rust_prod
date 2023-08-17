@@ -1,5 +1,8 @@
 use crate::{domains::SubscriberEmail, email_client::EmailClient};
-use actix_web::{http::header::HeaderMap, post, web, HttpRequest, HttpResponse, ResponseError};
+use actix_web::{
+    http::header::{self, HeaderMap},
+    post, web, HttpRequest, HttpResponse, ResponseError,
+};
 use base64;
 use reqwest::StatusCode;
 use secrecy::Secret;
@@ -50,6 +53,17 @@ impl ResponseError for PublishError {
         match self {
             PublishError::UnExceptedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             PublishError::AuthError(_) => StatusCode::UNAUTHORIZED,
+        }
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        match self {
+            PublishError::UnExceptedError(_) => {
+                HttpResponse::new(StatusCode::INTERNAL_SERVER_ERROR)
+            }
+            PublishError::AuthError(_) => HttpResponse::build(StatusCode::UNAUTHORIZED)
+                .append_header((header::WWW_AUTHENTICATE, r#"Basic realm="publish""#))
+                .finish(),
         }
     }
 }
