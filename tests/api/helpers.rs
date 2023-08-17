@@ -66,17 +66,17 @@ impl TestApp {
     }
 
     async fn get_test_user(&self) -> (String, String) {
-        let row = sqlx::query!("SELECT username, password FROM users LIMIT 1",)
+        let row = sqlx::query!("SELECT username, password_hash FROM users LIMIT 1",)
             .fetch_one(&self.db_pool)
             .await
             .expect("Unable to fetch test users");
-        (row.username, row.password)
+        (row.username, row.password_hash)
     }
 }
 
 async fn add_test_user(pool: &PgPool) {
     sqlx::query!(
-        "INSERT into users (user_id, username, password) VALUES ($1, $2, $3)",
+        "INSERT into users (user_id, username, password_hash) VALUES ($1, $2, $3)",
         Uuid::new_v4(),
         Uuid::new_v4().to_string(),
         Uuid::new_v4().to_string()
