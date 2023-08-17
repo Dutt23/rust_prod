@@ -1,6 +1,7 @@
 use crate::{domains::SubscriberEmail, email_client::EmailClient};
-use actix_web::{post, web, HttpResponse, ResponseError};
+use actix_web::{http::header::HeaderMap, post, web, HttpRequest, HttpResponse, ResponseError};
 use reqwest::StatusCode;
+use secrecy::Secret;
 use sqlx::PgPool;
 
 //  format! allocates memory on the heap to store its output
@@ -22,6 +23,11 @@ struct ConfirmedSubscriber {
     email: String,
 }
 
+pub struct Credentials {
+    username: String,
+    password: Secret<String>,
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum PublishError {
     #[error(transparent)]
@@ -36,13 +42,18 @@ impl ResponseError for PublishError {
     }
 }
 
-#[tracing::instrument(name = "Publish a news letter", skip(news_letter, email_client, pool))]
+#[tracing::instrument(
+    name = "Publish a news letter",
+    skip(news_letter, email_client, pool, request)
+)]
 #[post("/newsletter")]
 pub async fn publish_newsletter(
     news_letter: web::Json<NewsLetter>,
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
+    request: HttpRequest,
 ) -> Result<HttpResponse, PublishError> {
+    let _credentials = basic_authentication(request.headers()).await;
     let subscribers = get_confirmed_subscribers(&pool).await?;
 
     for subscriber in subscribers {
@@ -82,4 +93,8 @@ async fn get_confirmed_subscribers(
     .iter()
     .map(|row| SubscriberEmail::parse(row.email.clone()))
     .collect())
+}
+
+pub async fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
+    todo!()
 }
