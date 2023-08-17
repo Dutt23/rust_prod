@@ -8,6 +8,8 @@ use sqlx::PgPool;
 //  format! allocates memory on the heap to store its output
 use anyhow::Context;
 
+use super::error_chain_fmt;
+
 #[derive(serde::Deserialize)]
 pub struct NewsLetter {
     title: String,
@@ -29,16 +31,25 @@ pub struct Credentials {
     password: Secret<String>,
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error)]
 pub enum PublishError {
     #[error(transparent)]
     UnExceptedError(#[from] anyhow::Error),
+    #[error("Authentication failed.")]
+    AuthError(#[source] anyhow::Error),
+}
+
+impl std::fmt::Debug for PublishError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
 }
 
 impl ResponseError for PublishError {
     fn status_code(&self) -> reqwest::StatusCode {
         match self {
             PublishError::UnExceptedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            PublishError::AuthError(_) => StatusCode::UNAUTHORIZED,
         }
     }
 }
@@ -54,7 +65,7 @@ pub async fn publish_newsletter(
     email_client: web::Data<EmailClient>,
     request: HttpRequest,
 ) -> Result<HttpResponse, PublishError> {
-    let _credentials = basic_authentication(request.headers()).await;
+    let _credentials = basic_authentication(request.headers()).map_err(PublishError::AuthError)?;
     let subscribers = get_confirmed_subscribers(&pool).await?;
 
     for subscriber in subscribers {
@@ -96,7 +107,7 @@ async fn get_confirmed_subscribers(
     .collect())
 }
 
-pub async fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
+pub fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
     let header = headers
         .get("Authorization")
         .context("The 'Authorization header was missing'")?
