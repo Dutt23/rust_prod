@@ -83,6 +83,28 @@ async fn newsletter_returns_400_for_invalid_data() {
     }
 }
 
+#[tokio::test]
+async fn test_unauthorised_for_missing_credentials() {
+    let app = spawn_app().await;
+    create_confirmed_customers(&app).await;
+
+    let news_letter_body = serde_json::json!({
+        "title": "News letter title",
+        "content" : {
+            "text" : "Newsletter body as plain text",
+            "html": "<p> Newsletter body as HTML <p>"
+        }
+    });
+
+    let res = app.post_news_letters(&news_letter_body).await;
+
+    assert_eq!(401, res.status().as_u16());
+    assert_eq!(
+        r#"Basic realm="publish""#,
+        res.headers()["WWW-Authenticate"]
+    )
+}
+
 async fn create_confirmed_customers(app: &TestApp) {
     let confirmation_link = create_unconfirmed_subscribers(&app).await;
     let res = reqwest::get(format!("{}", confirmation_link.html))
