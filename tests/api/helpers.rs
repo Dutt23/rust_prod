@@ -8,17 +8,49 @@ use reqwest::Url;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
-
+// Get's digest into scope.
+use sha3::Digest;
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
     pub email_server: MockServer,
     pub app_port: u16,
+    pub test_user: TestUser,
+}
+
+pub struct TestUser {
+    pub user_id: Uuid,
+    pub username: String,
+    pub password: String,
 }
 
 pub struct ConfirmationLink {
     pub html: Url,
     pub plain_text: Url,
+}
+
+impl TestUser {
+    pub fn generate() -> Self {
+        Self {
+            user_id: Uuid::new_v4(),
+            username: Uuid::new_v4().to_string(),
+            password: Uuid::new_v4().to_string(),
+        }
+    }
+
+    pub async fn store(&self, pool: &PgPool) {
+        let password_hash = sha3::Sha3_256::digest(&self.password.as_bytes());
+        // Lowercase hexadecimal encoding.
+        sqlx::query!(
+            "INSERT INTO users (user_id, username, password_hash) VALUES ($1, $2, $3)",
+            self.user_id,
+            self.username,
+            format!("{:x}", password_hash)
+        )
+        .execute(pool)
+        .await
+        .expect("Failed to store use");
+    }
 }
 
 impl TestApp {
@@ -55,17 +87,16 @@ impl TestApp {
     }
 
     pub async fn post_news_letters(&self, json: &serde_json::Value) -> reqwest::Response {
-        let (username, password) = self.get_test_user().await;
         reqwest::Client::new()
             .post(format!("{}/newsletter", &self.address))
             .json(json)
-            .basic_auth(username, Some(password))
+            .basic_auth(&self.test_user.username, Some(&self.test_user.password))
             .send()
             .await
             .expect("Unable to send request")
     }
 
-    async fn get_test_user(&self) -> (String, String) {
+    async fn _get_test_user(&self) -> (String, String) {
         let row = sqlx::query!("SELECT username, password_hash FROM users LIMIT 1",)
             .fetch_one(&self.db_pool)
             .await
@@ -123,12 +154,15 @@ pub async fn spawn_app() -> TestApp {
     let db_pool = get_connection_pool(&configuration);
     add_test_user(&db_pool).await;
 
-    TestApp {
+    let test_app = TestApp {
         address,
         db_pool,
         email_server,
         app_port: application_port,
-    }
+        test_user: TestUser::generate(),
+    };
+    test_app.test_user.store(&test_app.db_pool).await;
+    test_app
 }
 
 async fn configure_database(config: &DatabaseSettings) -> PgPool {
