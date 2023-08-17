@@ -131,7 +131,7 @@ pub async fn validate_credentials(
     pool: &PgPool,
 ) -> Result<uuid::Uuid, PublishError> {
     let user_id = sqlx::query!(
-        r#"SELECT user_id from users where username = $1 AND password = $2"#,
+        r#"SELECT user_id from users where username = $1 AND password_hash = $2"#,
         credentials.username,
         credentials.password.expose_secret()
     )
