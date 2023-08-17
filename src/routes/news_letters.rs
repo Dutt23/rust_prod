@@ -1,5 +1,6 @@
 use crate::{domains::SubscriberEmail, email_client::EmailClient};
 use actix_web::{http::header::HeaderMap, post, web, HttpRequest, HttpResponse, ResponseError};
+use base64;
 use reqwest::StatusCode;
 use secrecy::Secret;
 use sqlx::PgPool;
@@ -96,5 +97,36 @@ async fn get_confirmed_subscribers(
 }
 
 pub async fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
-    todo!()
+    let header = headers
+        .get("Authorization")
+        .context("The 'Authorization header was missing'")?
+        .to_str()
+        .context("The Authorization header was not a valid string")?;
+
+    let encoded_segment = header
+        .strip_prefix("Basic")
+        .context("Authorization header did not match")?;
+
+    let decoded_bytes =
+        base64::decode(encoded_segment).context("Authorization not encoded properly")?;
+
+    let decoded_credentials =
+        String::from_utf8(decoded_bytes).context("Unable to decode properly")?;
+
+    let mut credentials = decoded_credentials.splitn(2, ":");
+
+    let username = credentials
+        .next()
+        .ok_or_else(|| anyhow::anyhow!(" A username must be provided in 'Basic' auth"))?
+        .to_string();
+
+    let password = credentials
+        .next()
+        .ok_or_else(|| anyhow::anyhow!(" A password must be provided "))?
+        .to_string();
+
+    Ok(Credentials {
+        username,
+        password: Secret::new(password),
+    })
 }
