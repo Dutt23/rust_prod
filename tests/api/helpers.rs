@@ -58,6 +58,7 @@ impl TestApp {
         reqwest::Client::new()
             .post(format!("{}/newsletter", &self.address))
             .json(json)
+            .basic_auth(Uuid::new_v4().to_string(), Some(Uuid::new_v4().to_string()))
             .send()
             .await
             .expect("Unable to send request")

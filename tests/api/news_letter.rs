@@ -1,4 +1,5 @@
 use crate::helpers::{spawn_app, ConfirmationLink, TestApp};
+use postgres::Client;
 use wiremock::{
     matchers::{any, method, path},
     Mock, ResponseTemplate,
@@ -96,7 +97,12 @@ async fn test_unauthorised_for_missing_credentials() {
         }
     });
 
-    let res = app.post_news_letters(&news_letter_body).await;
+    let res = reqwest::Client::new()
+        .post(format!("{}/newsletter", &app.address))
+        .json(&news_letter_body)
+        .send()
+        .await
+        .expect("Unable to send request");
 
     assert_eq!(401, res.status().as_u16());
     assert_eq!(

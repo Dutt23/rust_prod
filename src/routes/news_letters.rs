@@ -3,7 +3,7 @@ use actix_web::{
     http::header::{self, HeaderMap},
     post, web, HttpRequest, HttpResponse, ResponseError,
 };
-use base64;
+use base64::{engine::general_purpose, Engine as _};
 use reqwest::StatusCode;
 use secrecy::Secret;
 use sqlx::PgPool;
@@ -129,14 +129,15 @@ pub fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::
         .context("The Authorization header was not a valid string")?;
 
     let encoded_segment = header
-        .strip_prefix("Basic")
+        .strip_prefix("Basic ")
         .context("Authorization header did not match")?;
 
-    let decoded_bytes =
-        base64::decode(encoded_segment).context("Authorization not encoded properly")?;
+    let decoded_bytes = &general_purpose::STANDARD
+        .decode(encoded_segment)
+        .context("Authorization data not encoded properly")?;
 
     let decoded_credentials =
-        String::from_utf8(decoded_bytes).context("Unable to decode properly")?;
+        String::from_utf8(decoded_bytes.to_owned()).context("Unable to decode properly")?;
 
     let mut credentials = decoded_credentials.splitn(2, ":");
 
