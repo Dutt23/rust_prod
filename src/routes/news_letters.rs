@@ -6,6 +6,7 @@ use actix_web::{
 use base64::{engine::general_purpose, Engine as _};
 use reqwest::StatusCode;
 use secrecy::{ExposeSecret, Secret};
+use sha3::Digest;
 use sqlx::PgPool;
 
 //  format! allocates memory on the heap to store its output
@@ -130,10 +131,12 @@ pub async fn validate_credentials(
     credentials: &Credentials,
     pool: &PgPool,
 ) -> Result<uuid::Uuid, PublishError> {
+    let password_hash = sha3::Sha3_256::digest(credentials.password.expose_secret().as_bytes());
+
     let user_id = sqlx::query!(
         r#"SELECT user_id from users where username = $1 AND password_hash = $2"#,
         credentials.username,
-        credentials.password.expose_secret()
+        format!("{:x}", password_hash)
     )
     .fetch_optional(pool)
     .await
