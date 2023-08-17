@@ -55,14 +55,35 @@ impl TestApp {
     }
 
     pub async fn post_news_letters(&self, json: &serde_json::Value) -> reqwest::Response {
+        let (username, password) = self.get_test_user().await;
         reqwest::Client::new()
             .post(format!("{}/newsletter", &self.address))
             .json(json)
-            .basic_auth(Uuid::new_v4().to_string(), Some(Uuid::new_v4().to_string()))
+            .basic_auth(username, Some(password))
             .send()
             .await
             .expect("Unable to send request")
     }
+
+    async fn get_test_user(&self) -> (String, String) {
+        let row = sqlx::query!("SELECT username, password FROM users LIMIT 1",)
+            .fetch_one(&self.db_pool)
+            .await
+            .expect("Unable to fetch test users");
+        (row.username, row.password)
+    }
+}
+
+async fn add_test_user(pool: &PgPool) {
+    sqlx::query!(
+        "INSERT into users (user_id, username, password) VALUES ($1, $2, $3)",
+        Uuid::new_v4(),
+        Uuid::new_v4().to_string(),
+        Uuid::new_v4().to_string()
+    )
+    .execute(pool)
+    .await
+    .expect("Failed to create users");
 }
 
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -99,10 +120,12 @@ pub async fn spawn_app() -> TestApp {
     let address = format!("http://127.0.0.1:{}", app.port());
     let application_port = app.port();
     let _ = tokio::spawn(app.run_until_stopped());
+    let db_pool = get_connection_pool(&configuration);
+    add_test_user(&db_pool).await;
 
     TestApp {
         address,
-        db_pool: get_connection_pool(&configuration),
+        db_pool,
         email_server,
         app_port: application_port,
     }
