@@ -1,2 +1,2 @@
 -- Add migration script here
-ALTER users ADD COLUMN salt TEXT NOT NULL;
+ALTER TABLE users ADD COLUMN salt TEXT NOT NULL;
