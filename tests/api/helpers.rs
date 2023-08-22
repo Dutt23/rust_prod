@@ -9,7 +9,7 @@ use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
 // Get's digest into scope.
-use sha3::Digest;
+use argon2::{password_hash::SaltString, Argon2, PasswordHasher};
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
@@ -39,13 +39,17 @@ impl TestUser {
     }
 
     pub async fn store(&self, pool: &PgPool) {
-        let password_hash = sha3::Sha3_256::digest(&self.password.as_bytes());
+        let salt = SaltString::generate(&mut rand::thread_rng());
+        let password_hash = Argon2::default()
+            .hash_password(self.password.as_bytes(), &salt)
+            .unwrap()
+            .to_string();
         // Lowercase hexadecimal encoding.
         sqlx::query!(
             "INSERT INTO users (user_id, username, password_hash) VALUES ($1, $2, $3)",
             self.user_id,
             self.username,
-            format!("{:x}", password_hash)
+            password_hash
         )
         .execute(pool)
         .await
@@ -152,7 +156,6 @@ pub async fn spawn_app() -> TestApp {
     let application_port = app.port();
     let _ = tokio::spawn(app.run_until_stopped());
     let db_pool = get_connection_pool(&configuration);
-    add_test_user(&db_pool).await;
 
     let test_app = TestApp {
         address,
