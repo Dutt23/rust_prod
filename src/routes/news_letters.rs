@@ -125,40 +125,47 @@ async fn get_confirmed_subscribers(
     .collect())
 }
 
-#[tracing::instrument(name = "Validating user credentials", skip(credentials, pool))]
+#[tracing::instrument(name = "Validating credentials", skip(credentials, pool))]
 pub async fn validate_credentials(
     credentials: &Credentials,
     pool: &PgPool,
 ) -> Result<uuid::Uuid, PublishError> {
-    let user = sqlx::query!(
-        r#"SELECT user_id, password_hash from users where username = $1"#,
-        credentials.username
-    )
-    .fetch_optional(pool)
-    .await
-    .context("Failed to perform query for auth user")
-    .map_err(PublishError::UnExceptedError)?;
+    let user = get_stored_credentials(&credentials.username, pool)
+        .await
+        .map_err(PublishError::UnExceptedError)?
+        .ok_or_else(|| PublishError::AuthError(anyhow::anyhow!("Incorrect username")))?;
 
-    let (user_id, expected_password_hash) = match user {
-        Some(row) => (row.user_id, row.password_hash),
-        None => {
-            return Err(PublishError::AuthError(anyhow::anyhow!("Unknown use")));
-        }
-    };
-
-    let password_hash = PasswordHash::new(&expected_password_hash)
+    let password_hash = PasswordHash::new(&user.1.expose_secret())
         .context("Unable to parse password string")
         .map_err(PublishError::UnExceptedError)?;
 
-    Argon2::default()
-        .verify_password(
-            credentials.password.expose_secret().as_bytes(),
-            &password_hash,
-        )
+    tracing::info_span!("Verify password hash")
+        .in_scope(|| {
+            Argon2::default().verify_password(
+                credentials.password.expose_secret().as_bytes(),
+                &password_hash,
+            )
+        })
         .context("Passwords do not match")
         .map_err(PublishError::AuthError)?;
 
-    Ok(user_id)
+    Ok(user.0)
+}
+
+#[tracing::instrument(name = "Fetch stored user", skip(pool))]
+pub async fn get_stored_credentials(
+    username: &str,
+    pool: &PgPool,
+) -> Result<Option<(uuid::Uuid, Secret<String>)>, anyhow::Error> {
+    let user = sqlx::query!(
+        r#"SELECT user_id, password_hash from users where username = $1"#,
+        username
+    )
+    .fetch_optional(pool)
+    .await
+    .context("Failed to retrieve user")?
+    .map(|row| (row.user_id, Secret::new(row.password_hash)));
+    Ok(user)
 }
 
 pub fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
