@@ -3,11 +3,10 @@ use actix_web::{
     http::header::{self, HeaderMap},
     post, web, HttpRequest, HttpResponse, ResponseError,
 };
-use argon2::{password_hash::Salt, Algorithm, Argon2, Params, PasswordHasher, Version};
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use base64::{engine::general_purpose, Engine as _};
 use reqwest::StatusCode;
 use secrecy::{ExposeSecret, Secret};
-use sha3::Digest;
 use sqlx::PgPool;
 //  format! allocates memory on the heap to store its output
 use anyhow::Context;
@@ -131,18 +130,8 @@ pub async fn validate_credentials(
     credentials: &Credentials,
     pool: &PgPool,
 ) -> Result<uuid::Uuid, PublishError> {
-    let password_hash = sha3::Sha3_256::digest(credentials.password.expose_secret().as_bytes());
-
-    let password_hasher = Argon2::new(
-        Algorithm::Argon2i,
-        Version::V0x13,
-        Params::new(1500, 2, 1, None)
-            .context("Failed to build Argon2 params")
-            .map_err(PublishError::UnExceptedError)?,
-    );
-
     let user = sqlx::query!(
-        r#"SELECT user_id, password_hash, salt from users where username = $1"#,
+        r#"SELECT user_id, password_hash from users where username = $1"#,
         credentials.username
     )
     .fetch_optional(pool)
@@ -150,28 +139,26 @@ pub async fn validate_credentials(
     .context("Failed to perform query for auth user")
     .map_err(PublishError::UnExceptedError)?;
 
-    let (user_id, expected_password, salt) = match user {
-        Some(row) => (row.user_id, row.password_hash, row.salt),
+    let (user_id, expected_password_hash) = match user {
+        Some(row) => (row.user_id, row.password_hash),
         None => {
             return Err(PublishError::AuthError(anyhow::anyhow!("Unknown use")));
         }
     };
 
-    let password_hash = password_hasher
-        .hash_password(
-            credentials.password.expose_secret().as_bytes(),
-            Salt::from_b64(&salt).unwrap(),
-        )
-        .context("Failed to validate password")
+    let password_hash = PasswordHash::new(&expected_password_hash)
+        .context("Unable to parse password string")
         .map_err(PublishError::UnExceptedError)?;
 
-    if password_hash.hash.unwrap().to_string() != expected_password {
-        Err(PublishError::AuthError(anyhow::anyhow!(
-            "Unable to verify password"
-        )))
-    } else {
-        Ok(user_id)
-    }
+    Argon2::default()
+        .verify_password(
+            credentials.password.expose_secret().as_bytes(),
+            &password_hash,
+        )
+        .context("Passwords do not match")
+        .map_err(PublishError::AuthError)?;
+
+    Ok(user_id)
 }
 
 pub fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
