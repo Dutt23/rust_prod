@@ -140,10 +140,10 @@ pub async fn validate_credentials(
             .context("Failed to build Argon2 params")
             .map_err(PublishError::UnExceptedError)?,
     );
+
     let user_id = sqlx::query!(
-        r#"SELECT user_id from users where username = $1 AND password_hash = $2"#,
-        credentials.username,
-        format!("{:x}", password_hash)
+        r#"SELECT user_id, password_hash, salt from users where username = $1"#,
+        credentials.username
     )
     .fetch_optional(pool)
     .await
