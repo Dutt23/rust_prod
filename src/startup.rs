@@ -57,6 +57,7 @@ pub fn get_connection_pool(settings: &Settings) -> PgPool {
 
 pub struct ApplicationBaseUrl(pub String);
 
+// https://ryhl.io/blog/async-what-is-blocking/
 fn run(
     listener: TcpListener,
     db_pool: PgPool,

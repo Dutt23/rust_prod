@@ -9,9 +9,9 @@ use reqwest::StatusCode;
 use secrecy::{ExposeSecret, Secret};
 use sqlx::PgPool;
 //  format! allocates memory on the heap to store its output
-use anyhow::Context;
-
 use super::error_chain_fmt;
+use crate::telemetry::spawn_blocking_with_tracing;
+use anyhow::Context;
 
 #[derive(serde::Deserialize)]
 pub struct NewsLetter {
@@ -82,10 +82,10 @@ pub async fn publish_newsletter(
 ) -> Result<HttpResponse, PublishError> {
     let credentials = basic_authentication(request.headers()).map_err(PublishError::AuthError)?;
     let subscribers = get_confirmed_subscribers(&pool).await?;
-    let user_id = validate_credentials(&credentials, &pool).await?;
+    tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
+    let user_id = validate_credentials(credentials, &pool).await?;
 
     tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
-    tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
     for subscriber in subscribers {
         match subscriber {
             Ok(email) => email_client
@@ -127,7 +127,7 @@ async fn get_confirmed_subscribers(
 
 #[tracing::instrument(name = "Validating credentials", skip(credentials, pool))]
 pub async fn validate_credentials(
-    credentials: &Credentials,
+    credentials: Credentials,
     pool: &PgPool,
 ) -> Result<uuid::Uuid, PublishError> {
     let user = get_stored_credentials(&credentials.username, pool)
@@ -135,21 +135,35 @@ pub async fn validate_credentials(
         .map_err(PublishError::UnExceptedError)?
         .ok_or_else(|| PublishError::AuthError(anyhow::anyhow!("Incorrect username")))?;
 
-    let password_hash = PasswordHash::new(&user.1.expose_secret())
+    spawn_blocking_with_tracing(move || verify_password(user.1, credentials.password))
+        .await
+        .context("Passwords do not match")
+        .map_err(PublishError::AuthError)??;
+
+    Ok(user.0)
+}
+
+#[tracing::instrument(
+    name = "Verify password hash",
+    skip(expected_password, password_candidate)
+)]
+pub fn verify_password(
+    expected_password: Secret<String>,
+    password_candidate: Secret<String>,
+) -> Result<(), PublishError> {
+    let password_hash = PasswordHash::new(&expected_password.expose_secret())
         .context("Unable to parse password string")
         .map_err(PublishError::UnExceptedError)?;
 
     tracing::info_span!("Verify password hash")
         .in_scope(|| {
             Argon2::default().verify_password(
-                credentials.password.expose_secret().as_bytes(),
+                password_candidate.expose_secret().as_bytes(),
                 &password_hash,
             )
         })
-        .context("Passwords do not match")
-        .map_err(PublishError::AuthError)?;
-
-    Ok(user.0)
+        .context("Invalid password")
+        .map_err(PublishError::AuthError)
 }
 
 #[tracing::instrument(name = "Fetch stored user", skip(pool))]
