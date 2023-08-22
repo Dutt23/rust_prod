@@ -3,7 +3,7 @@ use actix_web::{
     http::header::{self, HeaderMap},
     post, web, HttpRequest, HttpResponse, ResponseError,
 };
-use argon2::{Algorithm, Argon2, Params, Version};
+use argon2::{password_hash::Salt, Algorithm, Argon2, Params, PasswordHasher, Version};
 use base64::{engine::general_purpose, Engine as _};
 use reqwest::StatusCode;
 use secrecy::{ExposeSecret, Secret};
@@ -141,7 +141,7 @@ pub async fn validate_credentials(
             .map_err(PublishError::UnExceptedError)?,
     );
 
-    let user_id = sqlx::query!(
+    let user = sqlx::query!(
         r#"SELECT user_id, password_hash, salt from users where username = $1"#,
         credentials.username
     )
@@ -150,10 +150,28 @@ pub async fn validate_credentials(
     .context("Failed to perform query for auth user")
     .map_err(PublishError::UnExceptedError)?;
 
-    user_id
-        .map(|row| row.user_id)
-        .ok_or_else(|| anyhow::anyhow!("Invalid username or password !"))
-        .map_err(PublishError::AuthError)
+    let (user_id, expected_password, salt) = match user {
+        Some(row) => (row.user_id, row.password_hash, row.salt),
+        None => {
+            return Err(PublishError::AuthError(anyhow::anyhow!("Unknown use")));
+        }
+    };
+
+    let password_hash = password_hasher
+        .hash_password(
+            credentials.password.expose_secret().as_bytes(),
+            Salt::from_b64(&salt).unwrap(),
+        )
+        .context("Failed to validate password")
+        .map_err(PublishError::UnExceptedError)?;
+
+    if password_hash.hash.unwrap().to_string() != expected_password {
+        Err(PublishError::AuthError(anyhow::anyhow!(
+            "Unable to verify password"
+        )))
+    } else {
+        Ok(user_id)
+    }
 }
 
 pub fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
