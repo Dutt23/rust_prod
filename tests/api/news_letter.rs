@@ -1,5 +1,4 @@
 use crate::helpers::{spawn_app, ConfirmationLink, TestApp};
-use postgres::Client;
 use uuid::Uuid;
 use wiremock::{
     matchers::{any, method, path},

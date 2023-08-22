@@ -109,7 +109,7 @@ impl TestApp {
     }
 }
 
-async fn add_test_user(pool: &PgPool) {
+async fn _add_test_user(pool: &PgPool) {
     sqlx::query!(
         "INSERT into users (user_id, username, password_hash) VALUES ($1, $2, $3)",
         Uuid::new_v4(),
