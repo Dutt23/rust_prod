@@ -3,12 +3,12 @@ use actix_web::{
     http::header::{self, HeaderMap},
     post, web, HttpRequest, HttpResponse, ResponseError,
 };
+use argon2::{Algorithm, Argon2, Params, Version};
 use base64::{engine::general_purpose, Engine as _};
 use reqwest::StatusCode;
 use secrecy::{ExposeSecret, Secret};
 use sha3::Digest;
 use sqlx::PgPool;
-
 //  format! allocates memory on the heap to store its output
 use anyhow::Context;
 
@@ -133,6 +133,13 @@ pub async fn validate_credentials(
 ) -> Result<uuid::Uuid, PublishError> {
     let password_hash = sha3::Sha3_256::digest(credentials.password.expose_secret().as_bytes());
 
+    let password_hasher = Argon2::new(
+        Algorithm::Argon2i,
+        Version::V0x13,
+        Params::new(1500, 2, 1, None)
+            .context("Failed to build Argon2 params")
+            .map_err(PublishError::UnExceptedError)?,
+    );
     let user_id = sqlx::query!(
         r#"SELECT user_id from users where username = $1 AND password_hash = $2"#,
         credentials.username,
