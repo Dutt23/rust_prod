@@ -1,5 +1,6 @@
 use crate::helpers::{spawn_app, ConfirmationLink, TestApp};
 use postgres::Client;
+use uuid::Uuid;
 use wiremock::{
     matchers::{any, method, path},
     Mock, ResponseTemplate,
@@ -109,6 +110,31 @@ async fn test_unauthorised_for_missing_credentials() {
         r#"Basic realm="publish""#,
         res.headers()["WWW-Authenticate"]
     )
+}
+
+#[tokio::test]
+async fn unknown_user_is_rejected() {
+    let test_app = spawn_app().await;
+
+    let res = reqwest::Client::new()
+        .post(format!("{}/newsletter", &test_app.address))
+        .basic_auth(Uuid::new_v4().to_string(), Some(Uuid::new_v4().to_string()))
+        .json(&serde_json::json!({
+            "title": "News letter title",
+            "content" : {
+                "text" : "Newsletter body as plain text",
+                "html": "<p> Newsletter body as HTML <p>"
+            }
+        }))
+        .send()
+        .await
+        .expect("Unable to send http request");
+
+    assert_eq!(res.status().as_u16(), 401);
+    assert_eq!(
+        r#"Basic realm="publish""#,
+        res.headers()["WWW-Authenticate"]
+    );
 }
 
 async fn create_confirmed_customers(app: &TestApp) {
