@@ -1,6 +1,8 @@
-use actix_web::{get, HttpResponse};
+use actix_web::{get, http::header::ContentType, HttpResponse};
 
 #[get("/")]
 pub async fn home() -> HttpResponse {
-    HttpResponse::Accepted().finish()
+    HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(include_str!("home/home.html"))
 }
