@@ -2,7 +2,7 @@ use crate::{
     authentication::{validate_credentials, AuthError, Credentials},
     routes::error_chain_fmt,
 };
-use actix_web::{post, web, HttpResponse, ResponseError};
+use actix_web::{http::header::ContentType, post, web, HttpResponse, ResponseError};
 use reqwest::{header::LOCATION, StatusCode};
 use secrecy::Secret;
 use sqlx::PgPool;
@@ -57,5 +57,40 @@ impl ResponseError for LoginError {
             LoginError::AuthError(_) => StatusCode::UNAUTHORIZED,
             LoginError::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::build(self.status_code())
+            .content_type(ContentType::html())
+            .body(format!(
+                r#"<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta http-equiv="content-type" content="text/html; charset=utf-8">
+            <title>Login</title>
+        </head>
+        <body>
+            <p><i>{}</i></p>
+            <form action="/login" method="post">
+                <label>Username
+                    <input
+                        type="text"
+                        placeholder="Enter Username"
+                        name="username"
+                    >
+                </label>
+                <label>Password
+                    <input
+                        type="password"
+                        placeholder="Enter Password"
+                        name="password"
+                    >
+        </label>
+                <button type="submit">Login</button>
+            </form>
+        </body>
+        </html>"#,
+                self
+            ))
     }
 }
