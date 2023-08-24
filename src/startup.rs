@@ -1,10 +1,11 @@
-use crate::configuration::{ApplicationSecret, Settings};
+use crate::configuration::Settings;
 use crate::email_client::EmailClient;
 use crate::routes::{
     confirm, health_check, home, login, login_form, publish_newsletter, subscriptions,
 };
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
+use secrecy::Secret;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
@@ -66,7 +67,7 @@ fn run(
     db_pool: PgPool,
     email_client: EmailClient,
     base_url: String,
-    secret: ApplicationSecret,
+    secret: Secret<String>,
 ) -> Result<Server, std::io::Error> {
     // TODO: https://stackoverflow.com/questions/71497831/is-there-a-way-to-split-server-routes-declaration-in-actix-web
     // Wraps it in an Arc
