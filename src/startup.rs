@@ -58,6 +58,8 @@ pub fn get_connection_pool(settings: &Settings) -> PgPool {
         .acquire_timeout(std::time::Duration::from_secs(2))
         .connect_lazy_with(settings.database.with_db())
 }
+#[derive(Clone)]
+pub struct HmacSecret(pub Secret<String>);
 
 pub struct ApplicationBaseUrl(pub String);
 
@@ -74,7 +76,7 @@ fn run(
     let conn = web::Data::new(db_pool);
     let e_client = web::Data::new(email_client);
     let base_url = web::Data::new(ApplicationBaseUrl(base_url.clone()));
-    let secret = web::Data::new(secret);
+    let secret = web::Data::new(HmacSecret(secret));
 
     let server = HttpServer::new(move || {
         App::new()

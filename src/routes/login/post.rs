@@ -1,6 +1,7 @@
 use crate::{
     authentication::{validate_credentials, AuthError, Credentials},
     routes::error_chain_fmt,
+    startup::HmacSecret,
 };
 use actix_web::{error::InternalError, post, web, HttpResponse};
 use hmac::{Hmac, Mac};
@@ -27,7 +28,7 @@ pub enum LoginError {
 pub async fn login(
     form_data: web::Form<FormData>,
     pool: web::Data<PgPool>,
-    hmac_secret: web::Data<Secret<String>>,
+    hmac_secret: web::Data<HmacSecret>,
 ) -> Result<HttpResponse, InternalError<LoginError>> {
     let credentials = Credentials {
         username: form_data.0.username,
@@ -42,7 +43,7 @@ pub async fn login(
                 AuthError::UnExceptedError(_) => LoginError::UnexpectedError(e.into()),
             };
 
-            let location = get_encoded_string("/login", err.to_string(), &hmac_secret);
+            let location = get_encoded_string("/login", err.to_string(), &hmac_secret.0);
             let response = HttpResponse::SeeOther()
                 .insert_header((LOCATION, location))
                 .finish();
