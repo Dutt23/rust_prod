@@ -1,4 +1,4 @@
-use crate::{domains::SubscriberEmail, email_client::EmailClient};
+use crate::{authentication::AuthError, domains::SubscriberEmail, email_client::EmailClient};
 use actix_web::{
     http::header::{self, HeaderMap},
     post, web, HttpRequest, HttpResponse, ResponseError,
@@ -83,7 +83,12 @@ pub async fn publish_newsletter(
     let credentials = basic_authentication(request.headers()).map_err(PublishError::AuthError)?;
     let subscribers = get_confirmed_subscribers(&pool).await?;
     tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
-    let user_id = validate_credentials(credentials, &pool).await?;
+    let user_id = validate_credentials(credentials, &pool)
+        .await
+        .map_err(|e| match e {
+            AuthError::InvalidCredentialsError(_) => PublishError::AuthError(e.into()),
+            AuthError::UnExceptedError(_) => PublishError::AuthError(e.into()),
+        })?;
 
     tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
     for subscriber in subscribers {
@@ -129,16 +134,16 @@ async fn get_confirmed_subscribers(
 pub async fn validate_credentials(
     credentials: Credentials,
     pool: &PgPool,
-) -> Result<uuid::Uuid, PublishError> {
+) -> Result<uuid::Uuid, AuthError> {
     let user = get_stored_credentials(&credentials.username, pool)
         .await
-        .map_err(PublishError::UnExceptedError)?
-        .ok_or_else(|| PublishError::AuthError(anyhow::anyhow!("Incorrect username")))?;
+        .map_err(AuthError::UnExceptedError)?
+        .ok_or_else(|| AuthError::InvalidCredentialsError(anyhow::anyhow!("Incorrect username")))?;
 
     spawn_blocking_with_tracing(move || verify_password(user.1, credentials.password))
         .await
         .context("Passwords do not match")
-        .map_err(PublishError::AuthError)??;
+        .map_err(AuthError::InvalidCredentialsError)??;
 
     Ok(user.0)
 }
@@ -150,10 +155,9 @@ pub async fn validate_credentials(
 pub fn verify_password(
     expected_password: Secret<String>,
     password_candidate: Secret<String>,
-) -> Result<(), PublishError> {
+) -> Result<(), AuthError> {
     let password_hash = PasswordHash::new(&expected_password.expose_secret())
-        .context("Unable to parse password string")
-        .map_err(PublishError::UnExceptedError)?;
+        .context("Unable to parse password string")?;
 
     tracing::info_span!("Verify password hash")
         .in_scope(|| {
@@ -163,7 +167,7 @@ pub fn verify_password(
             )
         })
         .context("Invalid password")
-        .map_err(PublishError::AuthError)
+        .map_err(AuthError::InvalidCredentialsError)
 }
 
 #[tracing::instrument(name = "Fetch stored user", skip(pool))]
