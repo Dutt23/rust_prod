@@ -3,6 +3,7 @@ use crate::{
     routes::error_chain_fmt,
 };
 use actix_web::{http::header::ContentType, post, web, HttpResponse, ResponseError};
+use chrono::format;
 use reqwest::{header::LOCATION, StatusCode};
 use secrecy::Secret;
 use sqlx::PgPool;
@@ -57,8 +58,9 @@ impl ResponseError for LoginError {
     }
 
     fn error_response(&self) -> HttpResponse {
+        let encoded_error = urlencoding::Encoded::new(self.to_string());
         HttpResponse::build(self.status_code())
-            .insert_header((LOCATION, "/"))
+            .insert_header((LOCATION, format!("/login?error={}", encoded_error)))
             .finish()
     }
 }
