@@ -17,6 +17,7 @@ base64 = "0.21.2"
 chrono = "0.4.24"
 config = "0.13.3"
 env_logger = "0.10.0"
+hex = "0.4.3"
 hmac = { version = "0.12.1", features = ["std"] }
 htmlescape = "0.3.1"
 log = "0.4.17"
