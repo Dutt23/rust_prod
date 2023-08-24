@@ -1,4 +1,4 @@
-use crate::configuration::Settings;
+use crate::configuration::{ApplicationSecret, Settings};
 use crate::email_client::EmailClient;
 use crate::routes::{
     confirm, health_check, home, login, login_form, publish_newsletter, subscriptions,
@@ -37,6 +37,7 @@ impl Application {
             connection_pool,
             email_client,
             settings.application.base_url.to_owned(),
+            settings.application.hmac_secret.to_owned(),
         )?;
 
         Ok(Self { port, server })
@@ -65,18 +66,22 @@ fn run(
     db_pool: PgPool,
     email_client: EmailClient,
     base_url: String,
+    secret: ApplicationSecret,
 ) -> Result<Server, std::io::Error> {
     // TODO: https://stackoverflow.com/questions/71497831/is-there-a-way-to-split-server-routes-declaration-in-actix-web
     // Wraps it in an Arc
     let conn = web::Data::new(db_pool);
     let e_client = web::Data::new(email_client);
     let base_url = web::Data::new(ApplicationBaseUrl(base_url.clone()));
+    let secret = web::Data::new(secret);
+
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
             .app_data(conn.clone())
             .app_data(e_client.clone())
             .app_data(base_url.clone())
+            .app_data(secret.clone())
             .service(home)
             .service(login_form)
             .service(login)

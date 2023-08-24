@@ -2,9 +2,10 @@ use crate::{
     authentication::{validate_credentials, AuthError, Credentials},
     routes::error_chain_fmt,
 };
-use actix_web::{http::header::ContentType, post, web, HttpResponse, ResponseError};
-use chrono::format;
-use reqwest::{header::LOCATION, StatusCode};
+use actix_web::{error::InternalError, post, web, HttpResponse};
+use hmac::{Hmac, Mac};
+use reqwest::header::LOCATION;
+use secrecy::ExposeSecret;
 use secrecy::Secret;
 use sqlx::PgPool;
 
@@ -26,7 +27,8 @@ pub enum LoginError {
 pub async fn login(
     form_data: web::Form<FormData>,
     pool: web::Data<PgPool>,
-) -> Result<HttpResponse, LoginError> {
+    hmac_secret: web::Data<Secret<String>>,
+) -> Result<HttpResponse, InternalError<LoginError>> {
     let credentials = Credentials {
         username: form_data.0.username,
         password: Secret::new(form_data.0.password),
@@ -34,9 +36,17 @@ pub async fn login(
 
     let user_id = validate_credentials(credentials, &pool)
         .await
-        .map_err(|e| match e {
-            AuthError::InvalidCredentialsError(_) => LoginError::AuthError(e.into()),
-            AuthError::UnExceptedError(_) => LoginError::UnexpectedError(e.into()),
+        .map_err(|e| {
+            let err = match e {
+                AuthError::InvalidCredentialsError(_) => LoginError::AuthError(e.into()),
+                AuthError::UnExceptedError(_) => LoginError::UnexpectedError(e.into()),
+            };
+
+            let location = get_encoded_string("/login", err.to_string(), &hmac_secret);
+            let response = HttpResponse::SeeOther()
+                .insert_header((LOCATION, location))
+                .finish();
+            InternalError::from_response(err, response)
         })?;
 
     tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
@@ -46,21 +56,20 @@ pub async fn login(
         .finish())
 }
 
+pub fn get_encoded_string(url: &str, message: String, secret: &Secret<String>) -> String {
+    let query_string = format!("error={}", urlencoding::Encoded::new(message.to_string()));
+    let hmac_tag = {
+        let mut mac =
+            Hmac::<sha2::Sha256>::new_from_slice(secret.expose_secret().as_bytes()).unwrap();
+        mac.update(query_string.as_bytes());
+        mac.finalize().into_bytes()
+    };
+
+    format!("{url}?{query_string}&tag={hmac_tag:x}")
+}
+
 impl std::fmt::Debug for LoginError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         error_chain_fmt(self, f)
-    }
-}
-
-impl ResponseError for LoginError {
-    fn status_code(&self) -> StatusCode {
-        StatusCode::SEE_OTHER
-    }
-
-    fn error_response(&self) -> HttpResponse {
-        let encoded_error = urlencoding::Encoded::new(self.to_string());
-        HttpResponse::build(self.status_code())
-            .insert_header((LOCATION, format!("/login?error={}", encoded_error)))
-            .finish()
     }
 }
