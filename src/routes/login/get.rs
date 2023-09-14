@@ -1,8 +1,9 @@
-use actix_web::{get, http::header::ContentType, web, HttpRequest, HttpResponse};
-use hmac::{Hmac, Mac};
-
 use crate::startup::HmacSecret;
+use actix_web::{get, http::header::ContentType, web, HttpRequest, HttpResponse};
+use actix_web_flash_messages::{IncomingFlashMessages, Level};
+use hmac::{Hmac, Mac};
 use secrecy::ExposeSecret;
+use std::fmt::Write;
 #[derive(serde::Deserialize)]
 pub struct QueryParams {
     error: String,
@@ -22,15 +23,13 @@ impl QueryParams {
     }
 }
 
-#[tracing::instrument(name = "Show login page.", skip(request))]
+#[tracing::instrument(name = "Show login page.", skip(flash_messages))]
 #[get("/login")]
-pub async fn login_form(request: HttpRequest) -> HttpResponse {
-    let error_html = match request.cookie("_flash") {
-        None => "".into(),
-        Some(cookie) => {
-            format!("<p><i>{}</i></p>", cookie.value())
-        }
-    };
+pub async fn login_form(flash_messages: IncomingFlashMessages) -> HttpResponse {
+    let mut error_html = String::new();
+    for m in flash_messages.iter() {
+        writeln!(error_html, "<p><i>{}</i></p>", m.content()).unwrap();
+    }
 
     HttpResponse::Ok()
         .content_type(ContentType::html())
