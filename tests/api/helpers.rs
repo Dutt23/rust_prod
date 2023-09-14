@@ -107,6 +107,18 @@ impl TestApp {
             .expect("Unable to fetch test users");
         (row.username, row.password_hash)
     }
+
+    pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        reqwest::Client::new()
+            .post(&format!("{}/login", self.address))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to executr erequest")
+    }
 }
 
 async fn _add_test_user(pool: &PgPool) {
