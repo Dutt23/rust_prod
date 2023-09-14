@@ -1,7 +1,8 @@
 use crate::configuration::Settings;
 use crate::email_client::EmailClient;
 use crate::routes::{
-    confirm, health_check, home, login, login_form, publish_newsletter, subscriptions,
+    admin_dashboard, confirm, health_check, home, login, login_form, publish_newsletter,
+    subscriptions,
 };
 use actix_session::{storage::RedisSessionStore, SessionMiddleware};
 use actix_web::dev::Server;
@@ -20,7 +21,7 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build(settings: &Settings) -> Result<Self, std::io::Error> {
+    pub async fn build(settings: &Settings) -> Result<Self, anyhow::Error> {
         let connection_pool = get_connection_pool(settings);
         let sender_email = settings
             .email_client
@@ -105,6 +106,7 @@ async fn run(
             .service(health_check)
             .service(confirm)
             .service(publish_newsletter)
+            .service(admin_dashboard)
     })
     .listen(listener)?
     .run();

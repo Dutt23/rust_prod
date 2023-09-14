@@ -1,5 +1,5 @@
 use crate::startup::HmacSecret;
-use actix_web::{get, http::header::ContentType, web, HttpRequest, HttpResponse};
+use actix_web::{get, http::header::ContentType, HttpResponse};
 use actix_web_flash_messages::{IncomingFlashMessages, Level};
 use hmac::{Hmac, Mac};
 use secrecy::ExposeSecret;
