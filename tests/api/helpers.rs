@@ -108,11 +108,15 @@ impl TestApp {
         (row.username, row.password_hash)
     }
 
+    // By default, a Client will automatically handle HTTP redirects, having a maximum redirect chain of 10 hops. To customize this behavior, a redirect::Policy can be used with a ClientBuilder.
     pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
     where
         Body: serde::Serialize,
     {
-        reqwest::Client::new()
+        reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap()
             .post(&format!("{}/login", self.address))
             .form(body)
             .send()
@@ -203,4 +207,9 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to migrate the database");
 
     return connection_pool;
+}
+
+pub fn assert_is_redirected_to(response: &reqwest::Response, location: &str) {
+    assert_eq!(response.status().as_u16(), 303);
+    assert_eq!(response.headers().get("Location").unwrap(), location);
 }
