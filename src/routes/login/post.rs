@@ -3,7 +3,7 @@ use crate::{
     routes::error_chain_fmt,
     startup::HmacSecret,
 };
-use actix_web::{error::InternalError, post, web, HttpResponse};
+use actix_web::{cookie::Cookie, error::InternalError, post, web, HttpResponse};
 use hmac::{Hmac, Mac};
 use reqwest::header::LOCATION;
 use secrecy::ExposeSecret;
@@ -45,7 +45,7 @@ pub async fn login(
 
             let location = "/login";
             let response = HttpResponse::SeeOther()
-                .insert_header(("Set-Cookie", format!("_flash={err}")))
+                .cookie(Cookie::new("_flash", err.to_string()))
                 .insert_header((LOCATION, location))
                 .finish();
             InternalError::from_response(err, response)
