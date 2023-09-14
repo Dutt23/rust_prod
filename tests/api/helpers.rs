@@ -123,6 +123,17 @@ impl TestApp {
             .await
             .expect("Failed to executr erequest")
     }
+
+    pub async fn get_login_html_helper(&self) -> String {
+        reqwest::Client::new()
+            .get(format!("{}/login", self.address))
+            .send()
+            .await
+            .expect("Failed to execute request")
+            .text()
+            .await
+            .unwrap()
+    }
 }
 
 async fn _add_test_user(pool: &PgPool) {
