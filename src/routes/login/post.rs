@@ -58,6 +58,7 @@ pub async fn login(
 
     tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
+    session.renew();
     // Serializes here, could result in an error
     session
         .insert("user_id", user_id)
