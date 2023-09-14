@@ -4,7 +4,9 @@ use crate::routes::{
     confirm, health_check, home, login, login_form, publish_newsletter, subscriptions,
 };
 use actix_web::dev::Server;
-use actix_web::{web, App, HttpServer};
+use actix_web::{cookie::Key, web, App, HttpServer};
+use actix_web_flash_messages::{storage::CookieMessageStore, FlashMessagesFramework};
+use secrecy::ExposeSecret;
 use secrecy::Secret;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
@@ -69,22 +71,24 @@ fn run(
     db_pool: PgPool,
     email_client: EmailClient,
     base_url: String,
-    secret: Secret<String>,
+    hmac_secret: Secret<String>,
 ) -> Result<Server, std::io::Error> {
     // TODO: https://stackoverflow.com/questions/71497831/is-there-a-way-to-split-server-routes-declaration-in-actix-web
     // Wraps it in an Arc
     let conn = web::Data::new(db_pool);
     let e_client = web::Data::new(email_client);
     let base_url = web::Data::new(ApplicationBaseUrl(base_url.clone()));
-    let secret = web::Data::new(HmacSecret(secret));
+    let cookie_store =
+        CookieMessageStore::builder(Key::from(hmac_secret.expose_secret().as_bytes())).build();
+    let message_framework = FlashMessagesFramework::builder(cookie_store).build();
 
     let server = HttpServer::new(move || {
         App::new()
             .wrap(TracingLogger::default())
+            .wrap(message_framework.clone())
             .app_data(conn.clone())
             .app_data(e_client.clone())
             .app_data(base_url.clone())
-            .app_data(secret.clone())
             .service(home)
             .service(login_form)
             .service(login)

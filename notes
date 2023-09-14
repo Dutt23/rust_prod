@@ -1,1 +1,4 @@
 OWASP -> for security and other sutff
+
+Cookies
+When it comes to durability, there are two types of cookies: session cookies and persistent cookies. Session cookies are stored in memory - they are deleted when the session ends (i.e. the browser is closed). Persistent cookies, instead, are saved to disk and will still be there when you re-open the browser
