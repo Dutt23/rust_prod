@@ -16,6 +16,7 @@ pub struct TestApp {
     pub email_server: MockServer,
     pub app_port: u16,
     pub test_user: TestUser,
+    pub api_client: reqwest::Client,
 }
 
 pub struct TestUser {
@@ -59,7 +60,7 @@ impl TestUser {
 
 impl TestApp {
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
-        reqwest::Client::new()
+        self.api_client
             .post(format!("{}/subscriptions", &self.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(body)
@@ -91,7 +92,7 @@ impl TestApp {
     }
 
     pub async fn post_news_letters(&self, json: &serde_json::Value) -> reqwest::Response {
-        reqwest::Client::new()
+        self.api_client
             .post(format!("{}/newsletter", &self.address))
             .json(json)
             .basic_auth(&self.test_user.username, Some(&self.test_user.password))
@@ -113,10 +114,7 @@ impl TestApp {
     where
         Body: serde::Serialize,
     {
-        reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .unwrap()
+        self.api_client
             .post(&format!("{}/login", self.address))
             .form(body)
             .send()
@@ -125,7 +123,7 @@ impl TestApp {
     }
 
     pub async fn get_login_html_helper(&self) -> String {
-        reqwest::Client::new()
+        self.api_client
             .get(format!("{}/login", self.address))
             .send()
             .await
@@ -190,6 +188,11 @@ pub async fn spawn_app() -> TestApp {
         email_server,
         app_port: application_port,
         test_user: TestUser::generate(),
+        api_client: reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .cookie_store(true)
+            .build()
+            .unwrap(),
     };
     test_app.test_user.store(&test_app.db_pool).await;
     test_app
