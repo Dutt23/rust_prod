@@ -1,8 +1,8 @@
 use crate::{
     authentication::{validate_credentials, AuthError, Credentials},
     routes::error_chain_fmt,
-    startup::HmacSecret,
 };
+use actix_session::Session;
 use actix_web::{
     cookie::{time::Duration, Cookie},
     error::InternalError,
@@ -14,7 +14,6 @@ use reqwest::header::LOCATION;
 use secrecy::ExposeSecret;
 use secrecy::Secret;
 use sqlx::PgPool;
-
 #[derive(serde::Deserialize)]
 pub struct FormData {
     pub username: String,
@@ -29,11 +28,12 @@ pub enum LoginError {
     UnexpectedError(#[from] anyhow::Error),
 }
 
-#[tracing::instrument(name = "Logging in a new user.", skip(form_data, pool))]
+#[tracing::instrument(name = "Logging in a new user.", skip(form_data, pool, session))]
 #[post("/login")]
 pub async fn login(
     form_data: web::Form<FormData>,
     pool: web::Data<PgPool>,
+    session: Session,
 ) -> Result<HttpResponse, InternalError<LoginError>> {
     let credentials = Credentials {
         username: form_data.0.username,
@@ -58,9 +58,21 @@ pub async fn login(
 
     tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
+    // Serializes here, could result in an error
+    session
+        .insert("user_id", user_id)
+        .map_err(|e| login_redirect(LoginError::UnexpectedError(e.into())))?;
     Ok(HttpResponse::SeeOther()
-        .insert_header((LOCATION, "/"))
+        .insert_header((LOCATION, "/admin/dashboard"))
         .finish())
+}
+
+fn login_redirect(e: LoginError) -> InternalError<LoginError> {
+    FlashMessage::error(e.to_string()).send();
+    let response = HttpResponse::SeeOther()
+        .insert_header((LOCATION, "/"))
+        .finish();
+    InternalError::from_response(e, response)
 }
 
 pub fn get_encoded_string(url: &str, message: String, secret: &Secret<String>) -> String {
