@@ -132,6 +132,17 @@ impl TestApp {
             .await
             .unwrap()
     }
+
+    pub async fn get_admin_dashboard_html_helper(&self) -> String {
+        self.api_client
+            .get(format!("{}/admin/dashboard", self.address))
+            .send()
+            .await
+            .expect("Failed to execute request")
+            .text()
+            .await
+            .unwrap()
+    }
 }
 
 async fn _add_test_user(pool: &PgPool) {
