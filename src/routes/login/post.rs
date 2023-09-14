@@ -24,11 +24,11 @@ pub enum LoginError {
     UnexpectedError(#[from] anyhow::Error),
 }
 
+#[tracing::instrument(name = "Logging in a new user.", skip(form_data, pool))]
 #[post("/login")]
 pub async fn login(
     form_data: web::Form<FormData>,
     pool: web::Data<PgPool>,
-    hmac_secret: web::Data<HmacSecret>,
 ) -> Result<HttpResponse, InternalError<LoginError>> {
     let credentials = Credentials {
         username: form_data.0.username,
@@ -43,7 +43,7 @@ pub async fn login(
                 AuthError::UnExceptedError(_) => LoginError::UnexpectedError(e.into()),
             };
 
-            let location = get_encoded_string("/login", err.to_string(), &hmac_secret.0);
+            let location = "/login";
             let response = HttpResponse::SeeOther()
                 .insert_header((LOCATION, location))
                 .finish();

@@ -22,6 +22,7 @@ impl QueryParams {
     }
 }
 
+#[tracing::instrument(name = "Show login page.", skip(query, secret))]
 #[get("/login")]
 pub async fn login_form(
     query: Option<web::Query<QueryParams>>,
