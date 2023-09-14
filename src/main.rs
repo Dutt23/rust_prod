@@ -5,7 +5,7 @@ use news_letter::{
 };
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> anyhow::Result<()> {
     let settings = get_configuration().expect("Unable to read configuration files");
     let subscriber = get_subscriber("news_letter".into(), "info".into(), std::io::stdout);
     init_subscriber(subscriber);
