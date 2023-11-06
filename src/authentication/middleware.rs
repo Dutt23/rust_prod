@@ -1,4 +1,4 @@
-use crate::{routes::admin::dashboard::e500, state_session::TypedSession};
+use crate::{routes::e500, state_session::TypedSession};
 use actix_web::{
     body::MessageBody,
     dev::{ServiceRequest, ServiceResponse},
