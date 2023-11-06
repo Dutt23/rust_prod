@@ -23,7 +23,10 @@ pub async fn change_password(
     }
 
     if form.new_password.expose_secret() != form.new_password_check.expose_secret() {
-        FlashMessage::error("You entered two different passwords = ").send();
+        FlashMessage::error(
+            "You entered two different new passwords - the field values must match.",
+        )
+        .send();
         return Ok(HttpResponse::SeeOther()
             .insert_header((LOCATION, "/admin/password"))
             .finish());
