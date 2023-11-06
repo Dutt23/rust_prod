@@ -48,3 +48,26 @@ async fn new_password_fields_must_match() {
     the field values must match.</i></p>",
     );
 }
+
+#[tokio::test]
+async fn current_password_must_be_valid() {
+    let app = spawn_app().await;
+
+    app.post_login(&serde_json::json!({
+      "username": &app.test_user.username,
+      "password": &app.test_user.password
+    }))
+    .await;
+
+    let resp = app
+        .post_password_change(&serde_json::json!({
+          "current_password": "invalid_password",
+          "new_password": "invalid_pass",
+          "new_password_check": "invalid_pass",
+        }))
+        .await;
+    assert_is_redirected_to(&resp, "/admin/password");
+    app.get_change_password_html()
+        .await
+        .contains("<p><i>The current password is incorrect.</i></p>");
+}
