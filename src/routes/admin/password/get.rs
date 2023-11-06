@@ -1,8 +1,18 @@
 use actix_web::http::header::ContentType;
 use actix_web::{get, Error, HttpResponse};
+use reqwest::header::LOCATION;
+
+use crate::routes::admin::dashboard::e500;
+use crate::state_session::TypedSession;
 
 #[get("/admin/password")]
-pub async fn change_password_form() -> Result<HttpResponse, Error> {
+pub async fn change_password_form(session: TypedSession) -> Result<HttpResponse, Error> {
+    if session.get_user_id().map_err(e500)?.is_none() {
+        return Ok(HttpResponse::SeeOther()
+            .insert_header((LOCATION, "/login"))
+            .finish());
+    }
+
     Ok(HttpResponse::Ok().content_type(ContentType::html()).body(
         r#"<!DOCTYPE html>
     <html lang="en">
