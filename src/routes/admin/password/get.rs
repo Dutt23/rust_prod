@@ -1,26 +1,39 @@
-use actix_web::http::header::ContentType;
-use actix_web::{get, Error, HttpResponse};
-use reqwest::header::LOCATION;
-
 use crate::routes::admin::dashboard::e500;
 use crate::state_session::TypedSession;
+use actix_web::http::header::ContentType;
+use actix_web::{get, Error, HttpResponse};
+use actix_web_flash_messages::IncomingFlashMessages;
+use reqwest::header::LOCATION;
+use std::fmt::Write;
 
 #[get("/admin/password")]
-pub async fn change_password_form(session: TypedSession) -> Result<HttpResponse, Error> {
+pub async fn change_password_form(
+    session: TypedSession,
+    flash_messages: IncomingFlashMessages,
+) -> Result<HttpResponse, Error> {
     if session.get_user_id().map_err(e500)?.is_none() {
         return Ok(HttpResponse::SeeOther()
             .insert_header((LOCATION, "/login"))
             .finish());
     }
 
-    Ok(HttpResponse::Ok().content_type(ContentType::html()).body(
-        r#"<!DOCTYPE html>
+    let mut msg_html = String::new();
+
+    for m in flash_messages.iter() {
+        writeln!(msg_html, "<p><i>{}</i></p>", m.content()).unwrap();
+    }
+
+    Ok(HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(format!(
+            r#"<!DOCTYPE html>
     <html lang="en">
     <head>
         <meta http-equiv="content-type" content="text/html; charset=utf-8">
         <title>Change Password</title>
     </head>
     <body>
+    {msg_html}
         <form action="/admin/password" method="post">
             <label>Current password
                 <input
@@ -51,5 +64,5 @@ pub async fn change_password_form(session: TypedSession) -> Result<HttpResponse,
         <p><a href="/admin/dashboard">&lt;- Back</a></p>
     </body>
     </html>"#,
-    ))
+        )))
 }

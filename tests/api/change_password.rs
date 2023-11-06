@@ -36,11 +36,12 @@ async fn new_password_fields_must_match() {
 
     let resp = app
         .post_password_change(&serde_json::json!({
-          "username": &app.test_user.username,
-          "new_password": &app.test_user.password,
+          "current_password": &app.test_user.password,
+          "new_password": &password,
           "new_password_check": &another_password
         }))
         .await;
+
     assert_is_redirected_to(&resp, "/admin/password");
     app.get_change_password_html().await.contains(
         "<p><i>You entered two different new passwords - \

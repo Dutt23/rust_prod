@@ -1,8 +1,8 @@
-use actix_web::{post, web, Error, HttpResponse};
-use reqwest::header::LOCATION;
-use secrecy::Secret;
-
 use crate::{routes::admin::dashboard::e500, state_session::TypedSession};
+use actix_web::{post, web, Error, HttpResponse};
+use actix_web_flash_messages::FlashMessage;
+use reqwest::header::LOCATION;
+use secrecy::{ExposeSecret, Secret};
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -19,6 +19,13 @@ pub async fn change_password(
     if session.get_user_id().map_err(e500)?.is_none() {
         return Ok(HttpResponse::SeeOther()
             .insert_header((LOCATION, "/login"))
+            .finish());
+    }
+
+    if form.new_password.expose_secret() != form.new_password_check.expose_secret() {
+        FlashMessage::error("You entered two different passwords = ").send();
+        return Ok(HttpResponse::SeeOther()
+            .insert_header((LOCATION, "/admin/password"))
             .finish());
     }
     todo!()
