@@ -1,3 +1,4 @@
+use crate::authentication::reject_anonymous_users;
 use crate::configuration::Settings;
 use crate::email_client::EmailClient;
 use crate::routes::{
@@ -8,6 +9,7 @@ use actix_session::{storage::RedisSessionStore, SessionMiddleware};
 use actix_web::dev::Server;
 use actix_web::{cookie::Key, web, App, HttpServer};
 use actix_web_flash_messages::{storage::CookieMessageStore, FlashMessagesFramework};
+use actix_web_lab::middleware::from_fn;
 use secrecy::ExposeSecret;
 use secrecy::Secret;
 use sqlx::postgres::PgPoolOptions;
@@ -99,6 +101,14 @@ async fn run(
             .app_data(conn.clone())
             .app_data(e_client.clone())
             .app_data(base_url.clone())
+            .service(
+                web::scope("/admin")
+                    .wrap(from_fn(reject_anonymous_users))
+                    .service(admin_dashboard)
+                    .service(change_password_form)
+                    .service(change_password)
+                    .service(log_out),
+            )
             .service(home)
             .service(login_form)
             .service(login)
@@ -106,10 +116,6 @@ async fn run(
             .service(health_check)
             .service(confirm)
             .service(publish_newsletter)
-            .service(admin_dashboard)
-            .service(change_password)
-            .service(change_password_form)
-            .service(log_out)
     })
     .listen(listener)?
     .run();
