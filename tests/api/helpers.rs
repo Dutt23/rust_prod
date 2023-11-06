@@ -176,6 +176,10 @@ impl TestApp {
             .await
             .expect("Failed to execute request")
     }
+
+    pub async fn get_change_password_html(&self) -> String {
+        self.change_password().await.text().await.unwrap()
+    }
 }
 
 async fn _add_test_user(pool: &PgPool) {

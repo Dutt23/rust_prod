@@ -107,6 +107,8 @@ async fn run(
             .service(confirm)
             .service(publish_newsletter)
             .service(admin_dashboard)
+            .service(change_password)
+            .service(change_password_form)
     })
     .listen(listener)?
     .run();
