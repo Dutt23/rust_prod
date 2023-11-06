@@ -4,7 +4,7 @@ use reqwest::header::LOCATION;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::state_session::TypedSession;
+use crate::{authentication::UserId, state_session::TypedSession};
 
 pub fn e500<T>(e: T) -> actix_web::Error
 where
@@ -13,19 +13,16 @@ where
     actix_web::error::ErrorInternalServerError(e)
 }
 
-#[get("/admin/dashboard")]
-#[tracing::instrument(name = "Redirecting to admin page", skip(session, pool))]
+#[get("/dashboard")]
+#[tracing::instrument(name = "Redirecting to admin page", skip(pool))]
 pub async fn admin_dashboard(
-    session: TypedSession,
+    user_id: web::ReqData<UserId>,
     pool: web::Data<PgPool>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let username = if let Some(user_id) = session.get_user_id().map_err(e500)? {
-        get_username(user_id, &pool).await.map_err(e500)?
-    } else {
-        return Ok(HttpResponse::SeeOther()
-            .insert_header((LOCATION, "/login"))
-            .finish());
-    };
+    dbg!(&user_id);
+    let username = get_username(*user_id.into_inner(), &pool)
+        .await
+        .map_err(e500)?;
 
     Ok(HttpResponse::Ok()
         .content_type(ContentType::html())

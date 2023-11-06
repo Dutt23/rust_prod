@@ -1,5 +1,5 @@
-use crate::{authentication::UserId, routes::admin::dashboard::e500, state_session::TypedSession};
-use actix_web::{post, web, HttpResponse};
+use crate::state_session::TypedSession;
+use actix_web::{post, HttpResponse};
 use actix_web_flash_messages::FlashMessage;
 use reqwest::header::LOCATION;
 
@@ -10,7 +10,9 @@ fn see_other(route: &str) -> HttpResponse {
 }
 
 #[post("/logout")]
-#[tracing::instrument(name = "Logging out user")]
-pub async fn log_out(user_id: web::ReqData<UserId>) -> Result<HttpResponse, actix_web::Error> {
+#[tracing::instrument(name = "Logging out user", skip(session))]
+pub async fn log_out(session: TypedSession) -> Result<HttpResponse, actix_web::Error> {
+    session.log_out();
+    FlashMessage::info("You have successfully logged out.").send();
     Ok(see_other("/login"))
 }

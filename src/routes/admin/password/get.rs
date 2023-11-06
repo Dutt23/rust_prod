@@ -1,22 +1,16 @@
+use crate::authentication::UserId;
 use crate::routes::admin::dashboard::e500;
 use crate::state_session::TypedSession;
 use actix_web::http::header::ContentType;
-use actix_web::{get, Error, HttpResponse};
+use actix_web::{get, web, Error, HttpResponse};
 use actix_web_flash_messages::IncomingFlashMessages;
 use reqwest::header::LOCATION;
 use std::fmt::Write;
 
-#[get("/admin/password")]
+#[get("/password")]
 pub async fn change_password_form(
-    session: TypedSession,
     flash_messages: IncomingFlashMessages,
 ) -> Result<HttpResponse, Error> {
-    if session.get_user_id().map_err(e500)?.is_none() {
-        return Ok(HttpResponse::SeeOther()
-            .insert_header((LOCATION, "/login"))
-            .finish());
-    }
-
     let mut msg_html = String::new();
 
     for m in flash_messages.iter() {
