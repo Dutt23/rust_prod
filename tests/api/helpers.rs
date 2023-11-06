@@ -43,7 +43,7 @@ impl TestUser {
     pub async fn store(&self, pool: &PgPool) {
         let salt = SaltString::generate(&mut rand::thread_rng());
         let password_hash = Argon2::default()
-            .hash_password(self.password.as_bytes(), &salt)
+            .hash_password("test123".as_bytes(), &salt)
             .unwrap()
             .to_string();
         // Lowercase hexadecimal encoding.
