@@ -92,11 +92,10 @@ impl TestApp {
         confirmation_link
     }
 
-    pub async fn post_news_letters(&self, json: &serde_json::Value) -> reqwest::Response {
+    pub async fn post_news_letters(&self, form: &serde_json::Value) -> reqwest::Response {
         self.api_client
             .post(format!("{}/admin/newsletter", &self.address))
-            .json(json)
-            .basic_auth(&self.test_user.username, Some(&self.test_user.password))
+            .form(form)
             .send()
             .await
             .expect("Unable to send request")
