@@ -32,6 +32,7 @@ secrecy = { version = "0.8.0", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde-aux = "4.2.0"
 serde_json = "1.0.96"
+serde_urlencoded = "0.7.1"
 sha2 = "0.10.7"
 sha3 = "0.10.8"
 sqlx = { version = "0.6.2", features = ["runtime-actix-rustls", "macros", "postgres", "uuid", "chrono", "migrate", "offline"] }

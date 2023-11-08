@@ -94,7 +94,7 @@ impl TestApp {
 
     pub async fn post_news_letters(&self, json: &serde_json::Value) -> reqwest::Response {
         self.api_client
-            .post(format!("{}/newsletter", &self.address))
+            .post(format!("{}/admin/newsletter", &self.address))
             .json(json)
             .basic_auth(&self.test_user.username, Some(&self.test_user.password))
             .send()
@@ -204,7 +204,7 @@ async fn _add_test_user(pool: &PgPool) {
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     if std::env::var("TEST_LOG").is_ok() {
-        let subscriber = get_subscriber("test".into(), "debug".into(), std::io::stdout);
+        let subscriber = get_subscriber("test".into(), "info".into(), std::io::stdout);
         init_subscriber(subscriber);
     } else {
         let subscriber = get_subscriber("test".into(), "debug".into(), std::io::sink);

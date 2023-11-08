@@ -107,7 +107,8 @@ async fn run(
                     .service(admin_dashboard)
                     .service(change_password_form)
                     .service(change_password)
-                    .service(log_out),
+                    .service(log_out)
+                    .service(publish_newsletter),
             )
             .service(home)
             .service(login_form)
@@ -115,7 +116,6 @@ async fn run(
             .service(subscriptions)
             .service(health_check)
             .service(confirm)
-            .service(publish_newsletter)
     })
     .listen(listener)?
     .run();

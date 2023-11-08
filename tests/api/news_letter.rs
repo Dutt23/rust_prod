@@ -41,12 +41,16 @@ async fn news_letters_are_delivered_to_confirmed_customers() {
         .await;
 
     let news_letter_body = serde_json::json!({
-        "title": "News letter title",
-        "content" : {
-            "text" : "Newsletter body as plain text",
-            "html": "<p> Newsletter body as HTML <p>"
-        }
+        "title": "Newsletter title",
+        "text_content": "Newsletter body as plain text",
+        "html_content": "<p>Newsletter body as HTML</p>",
     });
+
+    app.post_login(&serde_json::json!({
+      "username": &app.test_user.username,
+      "password": &app.test_user.password
+    }))
+    .await;
 
     let res = app.post_news_letters(&news_letter_body).await;
 
@@ -98,7 +102,7 @@ async fn test_unauthorised_for_missing_credentials() {
     });
 
     let res = reqwest::Client::new()
-        .post(format!("{}/newsletter", &app.address))
+        .post(format!("{}/admin/newsletter", &app.address))
         .json(&news_letter_body)
         .send()
         .await
@@ -115,20 +119,15 @@ async fn test_unauthorised_for_missing_credentials() {
 async fn unknown_user_is_rejected() {
     let test_app = spawn_app().await;
 
-    let res = reqwest::Client::new()
-        .post(format!("{}/newsletter", &test_app.address))
-        .basic_auth(Uuid::new_v4().to_string(), Some(Uuid::new_v4().to_string()))
-        .json(&serde_json::json!({
+    let res = test_app
+        .post_news_letters(&serde_json::json!({
             "title": "News letter title",
             "content" : {
                 "text" : "Newsletter body as plain text",
                 "html": "<p> Newsletter body as HTML <p>"
             }
         }))
-        .send()
-        .await
-        .expect("Unable to send http request");
-
+        .await;
     assert_eq!(res.status().as_u16(), 401);
     assert_eq!(
         r#"Basic realm="publish""#,
