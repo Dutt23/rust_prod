@@ -63,19 +63,23 @@ pub struct FormData {
 )]
 #[post("/newsletter")]
 pub async fn publish_newsletter(
-    // form: web::Form<FormData>,
+    form: web::Form<FormData>,
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
     user_id: web::ReqData<UserId>,
 ) -> Result<HttpResponse, PublishError> {
     dbg!("Inside here");
     let subscribers = get_confirmed_subscribers(&pool).await?;
-
+    let FormData {
+        title,
+        text_content,
+        html_content,
+    } = form.0;
     tracing::Span::current().record("user_id", &tracing::field::display(*user_id));
     for subscriber in subscribers {
         match subscriber {
             Ok(email) => email_client
-                .send_email(&email, "s", "s", "w")
+                .send_email(&email, &title, &html_content, &text_content)
                 .await
                 .with_context(|| format!("Unable to send email to {}", email.as_ref()))?,
             Err(error) => {

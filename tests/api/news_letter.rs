@@ -17,12 +17,16 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
         .await;
 
     let news_letter_body = serde_json::json!({
-        "title": "News letter title",
-        "content" : {
-            "text" : "Newsletter body as plain text",
-            "html": "<p> Newsletter body as HTML <p>"
-        }
+        "title": "Newsletter title",
+        "text_content": "Newsletter body as plain text",
+        "html_content": "<p>Newsletter body as HTML</p>",
     });
+
+    app.post_login(&serde_json::json!({
+      "username": &app.test_user.username,
+      "password": &app.test_user.password
+    }))
+    .await;
 
     let res = app.post_news_letters(&news_letter_body).await;
 
@@ -60,13 +64,17 @@ async fn news_letters_are_delivered_to_confirmed_customers() {
 #[tokio::test]
 async fn newsletter_returns_400_for_invalid_data() {
     let app = spawn_app().await;
+    app.post_login(&serde_json::json!({
+      "username": &app.test_user.username,
+      "password": &app.test_user.password
+    }))
+    .await;
     let test_cases = vec![
         (
             serde_json::json!({
-                "content": {
-                    "text" : "News letter text",
-                    "html": "<p> Plain html body </p>"
-                }
+                    "text_content" : "News letter text",
+                    "html_content": "<p> Plain html body </p>"
+
             }),
             "missing title",
         ),
