@@ -1,4 +1,4 @@
-use crate::idempotency::get_saved_response;
+use crate::idempotency::{get_saved_response, try_processing, NextAction};
 use crate::routes::e500;
 use crate::{
     authentication::UserId, domains::SubscriberEmail, email_client::EmailClient,
@@ -92,6 +92,17 @@ pub async fn publish_newsletter(
         .try_into()
         .with_context(|| format!("Unable to get idempotency key"))
         .map_err(e400)?;
+    let transaction = match try_processing(&pool, &idempotency_key, *user_id)
+        .await
+        .map_err(e500)?
+    {
+        NextAction::StartProcessing(t) => t,
+        NextAction::ReturnSavedResponse(saved_response) => {
+            success_message().send();
+            return Ok(saved_response);
+        }
+    };
+
     if let Some(saved_response) = get_saved_response(&pool, &idempotency_key, *user_id)
         .await
         .map_err(e400)?
@@ -118,10 +129,14 @@ pub async fn publish_newsletter(
 
     FlashMessage::info("The newsletter issue has been published!").send();
     let response = see_other("/admin/newsletters");
-    let response = save_response(&pool, &idempotency_key, *user_id, response)
+    let response = save_response(transaction, &idempotency_key, *user_id, response)
         .await
         .map_err(e500)?;
     Ok(response)
+}
+
+fn success_message() -> FlashMessage {
+    FlashMessage::info("The newsletter issue has been published!")
 }
 
 #[tracing::instrument(name = "Get a list of confirmed subscribers", skip(pool))]
