@@ -20,6 +20,7 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
         "title": "Newsletter title",
         "text_content": "Newsletter body as plain text",
         "html_content": "<p>Newsletter body as HTML</p>",
+        "idempotency_key": uuid::Uuid::new_v4().to_string(),
     });
 
     app.post_login(&serde_json::json!({
@@ -30,7 +31,7 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
 
     let res = app.post_news_letters(&news_letter_body).await;
 
-    assert_eq!(res.status().as_u16(), 200);
+    assert_is_redirected_to(&res, "/admin/newsletters");
 }
 
 #[tokio::test]
@@ -55,10 +56,11 @@ async fn news_letters_are_delivered_to_confirmed_customers() {
             "title": "Newsletter title",
             "text_content": "Newsletter body as plain text",
             "html_content": "<p>Newsletter body as HTML</p>",
+            "idempotency_key": uuid::Uuid::new_v4().to_string(),
         }))
         .await;
 
-    assert_eq!(res.status().as_u16(), 200);
+    assert_is_redirected_to(&res, "/admin/newsletters");
 }
 
 #[tokio::test]

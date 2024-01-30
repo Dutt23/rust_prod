@@ -1,6 +1,6 @@
 use crate::{
     authentication::UserId, domains::SubscriberEmail, email_client::EmailClient,
-    routes::error_chain_fmt,
+    idempotency::IdempotencyKey, routes::error_chain_fmt, utils::e400,
 };
 use actix_web::{
     http::header::{self},
@@ -61,6 +61,7 @@ pub struct FormData {
     title: String,
     text_content: String,
     html_content: String,
+    idempotency_key: String,
 }
 
 #[tracing::instrument(
@@ -81,7 +82,12 @@ pub async fn publish_newsletter(
         title,
         text_content,
         html_content,
+        idempotency_key,
     } = form.0;
+
+    let idempotency_key: IdempotencyKey = idempotency_key
+        .try_into()
+        .with_context(|| format!("Unable to get idempotency key"))?;
     tracing::Span::current().record("user_id", &tracing::field::display(*user_id));
     for subscriber in subscribers {
         match subscriber {
