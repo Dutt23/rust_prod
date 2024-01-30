@@ -4,12 +4,19 @@ use crate::{
 };
 use actix_web::{
     http::header::{self},
-    post, web, HttpRequest, HttpResponse, ResponseError,
+    post, web, HttpResponse, ResponseError,
 };
-
+use actix_web_flash_messages::FlashMessage;
 use anyhow::Context;
+use reqwest::header::LOCATION;
 use reqwest::StatusCode;
 use sqlx::PgPool;
+
+fn see_other(route: &str) -> HttpResponse {
+    HttpResponse::SeeOther()
+        .insert_header((LOCATION, route))
+        .finish()
+}
 
 #[derive(thiserror::Error)]
 pub enum PublishError {
@@ -61,7 +68,7 @@ pub struct FormData {
     skip_all,
     fields(user_id=%&*user_id)
 )]
-#[post("/newsletter")]
+#[post("/newsletters")]
 pub async fn publish_newsletter(
     form: web::Form<FormData>,
     pool: web::Data<PgPool>,
@@ -92,7 +99,8 @@ pub async fn publish_newsletter(
         }
     }
 
-    Ok(HttpResponse::Ok().finish())
+    FlashMessage::info("The newsletter issue has been published!").send();
+    Ok(see_other("/admin/newsletters"))
 }
 
 #[tracing::instrument(name = "Get a list of confirmed subscribers", skip(pool))]

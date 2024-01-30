@@ -1,10 +1,6 @@
-use crate::authentication::UserId;
-use crate::routes::admin::dashboard::e500;
-use crate::state_session::TypedSession;
 use actix_web::http::header::ContentType;
 use actix_web::{get, web, Error, HttpResponse};
 use actix_web_flash_messages::IncomingFlashMessages;
-use reqwest::header::LOCATION;
 use std::fmt::Write;
 
 #[get("/password")]

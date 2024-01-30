@@ -2,11 +2,12 @@ use crate::authentication::reject_anonymous_users;
 use crate::configuration::Settings;
 use crate::email_client::EmailClient;
 use crate::routes::{
-    admin_dashboard, change_password, change_password_form, confirm, health_check, home, log_out,
-    login, login_form, publish_newsletter, subscriptions,
+    admin_dashboard, change_password, change_password_form, confirm, get_news_letter_form,
+    health_check, home, log_out, login, login_form, publish_newsletter, subscriptions,
 };
 use actix_session::{storage::RedisSessionStore, SessionMiddleware};
 use actix_web::dev::Server;
+use actix_web::web::service;
 use actix_web::{cookie::Key, web, App, HttpServer};
 use actix_web_flash_messages::{storage::CookieMessageStore, FlashMessagesFramework};
 use actix_web_lab::middleware::from_fn;
@@ -108,7 +109,8 @@ async fn run(
                     .service(change_password_form)
                     .service(change_password)
                     .service(log_out)
-                    .service(publish_newsletter),
+                    .service(publish_newsletter)
+                    .service(get_news_letter_form),
             )
             .service(home)
             .service(login_form)
