@@ -40,6 +40,14 @@ impl TestUser {
         }
     }
 
+    pub async fn login(&self, app: &TestApp) {
+        app.post_login(&serde_json::json!({
+            "username": &self.username,
+            "password": &self.password
+        }))
+        .await;
+    }
+
     pub async fn store(&self, pool: &PgPool) {
         let salt = SaltString::generate(&mut rand::thread_rng());
         let password_hash = Argon2::default()
@@ -94,7 +102,7 @@ impl TestApp {
 
     pub async fn post_news_letters(&self, form: &serde_json::Value) -> reqwest::Response {
         self.api_client
-            .post(format!("{}/admin/newsletter", &self.address))
+            .post(format!("{}/admin/newsletters", &self.address))
             .form(form)
             .send()
             .await
@@ -125,6 +133,17 @@ impl TestApp {
     pub async fn get_login_html_helper(&self) -> String {
         self.api_client
             .get(format!("{}/login", self.address))
+            .send()
+            .await
+            .expect("Failed to execute request")
+            .text()
+            .await
+            .unwrap()
+    }
+
+    pub async fn get_publish_newsletter(&self) -> String {
+        self.api_client
+            .get(format!("{}/admin/newsletters", self.address))
             .send()
             .await
             .expect("Failed to execute request")

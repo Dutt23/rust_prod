@@ -7,7 +7,6 @@ use crate::routes::{
 };
 use actix_session::{storage::RedisSessionStore, SessionMiddleware};
 use actix_web::dev::Server;
-use actix_web::web::service;
 use actix_web::{cookie::Key, web, App, HttpServer};
 use actix_web_flash_messages::{storage::CookieMessageStore, FlashMessagesFramework};
 use actix_web_lab::middleware::from_fn;
