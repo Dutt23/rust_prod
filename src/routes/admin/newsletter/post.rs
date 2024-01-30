@@ -1,3 +1,4 @@
+use crate::idempotency::get_saved_response;
 use crate::{
     authentication::UserId, domains::SubscriberEmail, email_client::EmailClient,
     idempotency::IdempotencyKey, routes::error_chain_fmt, utils::e400,
@@ -75,9 +76,10 @@ pub async fn publish_newsletter(
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
     user_id: web::ReqData<UserId>,
-) -> Result<HttpResponse, PublishError> {
+) -> Result<HttpResponse, actix_web::Error> {
     dbg!("Inside here");
-    let subscribers = get_confirmed_subscribers(&pool).await?;
+    let user_id = user_id.into_inner();
+    let subscribers = get_confirmed_subscribers(&pool).await.map_err(e400)?;
     let FormData {
         title,
         text_content,
@@ -87,14 +89,22 @@ pub async fn publish_newsletter(
 
     let idempotency_key: IdempotencyKey = idempotency_key
         .try_into()
-        .with_context(|| format!("Unable to get idempotency key"))?;
+        .with_context(|| format!("Unable to get idempotency key"))
+        .map_err(e400)?;
+    if let Some(saved_response) = get_saved_response(&pool, &idempotency_key, *user_id)
+        .await
+        .map_err(e400)?
+    {
+        return Ok(saved_response);
+    }
     tracing::Span::current().record("user_id", &tracing::field::display(*user_id));
     for subscriber in subscribers {
         match subscriber {
             Ok(email) => email_client
                 .send_email(&email, &title, &html_content, &text_content)
                 .await
-                .with_context(|| format!("Unable to send email to {}", email.as_ref()))?,
+                .with_context(|| format!("Unable to send email to {}", email.as_ref()))
+                .map_err(e400)?,
             Err(error) => {
                 tracing::warn!(
                     error.error_chain = ?error,
