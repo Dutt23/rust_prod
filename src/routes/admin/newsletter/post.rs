@@ -1,7 +1,8 @@
 use crate::idempotency::get_saved_response;
+use crate::routes::e500;
 use crate::{
     authentication::UserId, domains::SubscriberEmail, email_client::EmailClient,
-    idempotency::IdempotencyKey, routes::error_chain_fmt, utils::e400,
+    idempotency::save_response, idempotency::IdempotencyKey, routes::error_chain_fmt, utils::e400,
 };
 use actix_web::{
     http::header::{self},
@@ -116,7 +117,11 @@ pub async fn publish_newsletter(
     }
 
     FlashMessage::info("The newsletter issue has been published!").send();
-    Ok(see_other("/admin/newsletters"))
+    let response = see_other("/admin/newsletters");
+    let response = save_response(&pool, &idempotency_key, *user_id, response)
+        .await
+        .map_err(e500)?;
+    Ok(response)
 }
 
 #[tracing::instrument(name = "Get a list of confirmed subscribers", skip(pool))]

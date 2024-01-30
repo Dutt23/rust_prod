@@ -66,5 +66,3 @@ pub async fn save_response(
     let http_response = response_head.set_body(body).map_into_boxed_body();
     Ok(http_response)
 }
-
-fn test(a: &mut i32) {}
