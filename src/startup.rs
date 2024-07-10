@@ -94,10 +94,10 @@ async fn run(
         App::new()
             .wrap(TracingLogger::default())
             .wrap(message_framework.clone())
-            .wrap(SessionMiddleware::new(
+            .wrap(SessionMiddleware::builder(
                 redis_store.clone(),
                 secret_key.clone(),
-            ))
+            ).cookie_secure(true).build())
             .app_data(conn.clone())
             .app_data(e_client.clone())
             .app_data(base_url.clone())

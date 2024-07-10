@@ -28,6 +28,7 @@ impl FromRequest for TypedSession {
     type Future = Ready<Result<TypedSession, Self::Error>>;
 
     fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
+        dbg!(req.get_session().entries());
         ready(Ok(TypedSession(req.get_session())))
     }
 }
