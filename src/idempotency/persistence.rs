@@ -96,9 +96,9 @@ pub async fn try_processing(
     user_id: Uuid,
 ) -> Result<NextAction, anyhow::Error> {
     let mut transaction = pool.begin().await?;
-    sqlx::query!("SET TRANSACTION ISOLATION LEVEL repeatable read")
-        .execute(&mut transaction)
-        .await?;
+    // sqlx::query!("SET TRANSACTION ISOLATION LEVEL repeatable read")
+    //     .execute(&mut transaction)
+    //     .await?;
     let n_inserted_rows = sqlx::query!(
         r#"INSERT INTO idempotency (user_id, idempotency_key, created_at) VALUES($1, $2, now()) ON CONFLICT DO NOTHING"#,
         user_id,

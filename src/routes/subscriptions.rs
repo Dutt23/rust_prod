@@ -70,12 +70,11 @@ impl ResponseError for SubscribeError {
     fn status_code(&self) -> reqwest::StatusCode {
         match self {
             SubscribeError::ValidationError(_) => StatusCode::BAD_REQUEST,
-            SubscribeError::UnExceptedError(_) => StatusCode::INTERNAL_SERVER_ERROR
-            // SubscribeError::InsertSubscriberErrors(_)
-            // | SubscribeError::PoolError(_)
-            // | SubscribeError::TransactionCommitError(_)
-            // | SubscribeError::StoreTokenError(_)
-            // | SubscribeError::SendEmailError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            SubscribeError::UnExceptedError(_) => StatusCode::INTERNAL_SERVER_ERROR, // SubscribeError::InsertSubscriberErrors(_)
+                                                                                     // | SubscribeError::PoolError(_)
+                                                                                     // | SubscribeError::TransactionCommitError(_)
+                                                                                     // | SubscribeError::StoreTokenError(_)
+                                                                                     // | SubscribeError::SendEmailError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
