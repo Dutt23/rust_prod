@@ -3,6 +3,12 @@ use sqlx::{PgPool, Postgres, Transaction};
 use tracing::{field::display, Span};
 use uuid::Uuid;
 
+struct NewsLetterIssue {
+    title: String,
+    text_content: String,
+    html_content: String,
+}
+
 #[tracing::instrument(skip_all)]
 async fn execute_task(pool: &PgPool, email_client: &EmailClient) -> Result<(), anyhow::Error> {
     if let Some((transaction, issue_id, email)) = dequeue_task(pool).await? {
@@ -66,4 +72,14 @@ async fn delete_task(
     .await?;
     transaction.commit().await?;
     Ok(())
+}
+
+#[tracing::instrument(skip_all)]
+async fn get_issue(pool: &PgPool, issue_id: Uuid) -> Result<NewsLetterIssue, anyhow::Error> {
+    let issue = sqlx::query_as!(NewsLetterIssue, 
+      r#"SELECT title, text_content, html_content FROM newsletter_issues where newsletter_issue_id = $1"#, 
+      issue_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(issue)
 }
