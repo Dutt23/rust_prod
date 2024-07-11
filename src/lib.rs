@@ -3,6 +3,7 @@ pub mod configuration;
 pub mod domains;
 pub mod email_client;
 pub mod idempotency;
+pub mod issue_delivery_worker;
 pub mod routes;
 pub mod startup;
 pub mod state_session;

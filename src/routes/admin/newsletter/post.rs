@@ -75,11 +75,10 @@ pub struct FormData {
 pub async fn publish_newsletter(
     form: web::Form<FormData>,
     pool: web::Data<PgPool>,
-    email_client: web::Data<EmailClient>,
     user_id: web::ReqData<UserId>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let user_id = user_id.into_inner();
-    let subscribers = get_confirmed_subscribers(&pool).await.map_err(e400)?;
+    // let subscribers = get_confirmed_subscribers(&pool).await.map_err(e400)?;
     let FormData {
         title,
         text_content,
