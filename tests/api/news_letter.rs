@@ -2,6 +2,10 @@ use std::time::Duration;
 
 use crate::helpers::{assert_is_redirected_to, spawn_app, ConfirmationLink, TestApp};
 use actix_web_lab::test;
+use fake::faker::internet::en::SafeEmail;
+use fake::faker::name::en::Name;
+use fake::Fake;
+use wiremock::MockBuilder;
 use wiremock::{
     matchers::{any, method, path},
     Mock, ResponseTemplate,
@@ -142,8 +146,13 @@ async fn create_confirmed_customers(app: &TestApp) {
 }
 
 async fn create_unconfirmed_subscribers(app: &TestApp) -> ConfirmationLink {
-    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
-
+    let name: String = Name().fake();
+    let email: String = SafeEmail().fake();
+    let body = serde_urlencoded::to_string(&serde_json::json!({
+        "name": name,
+        "email": email
+    }))
+    .unwrap();
     let _mock_gaurd = Mock::given(path("/email"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
@@ -224,4 +233,47 @@ async fn concurrent_form_submission_is_handled_gracefully() {
         response1.text().await.unwrap(),
         response2.text().await.unwrap()
     );
+}
+
+fn when_sending_an_email() -> MockBuilder {
+    Mock::given(path("/email")).and(method("POST"))
+}
+
+#[tokio::test]
+async fn transient_errors_do_not_cause_duplicate_deliveries_on_retries() {
+    let app = spawn_app().await;
+    let newsletter_request_body = serde_json::json!({
+    "title": "Newsletter title",
+    "text_content": "Newsletter body as plain text", "html_content": "<p>Newsletter body as HTML</p>", "idempotency_key": uuid::Uuid::new_v4().to_string()
+    });
+
+    create_confirmed_customers(&app).await;
+    create_confirmed_customers(&app).await;
+    app.test_user.login(&app).await;
+
+    when_sending_an_email()
+        .respond_with(ResponseTemplate::new(200))
+        .up_to_n_times(1)
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+    when_sending_an_email()
+        .respond_with(ResponseTemplate::new(500))
+        .up_to_n_times(1)
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    let response = app.post_news_letters(&newsletter_request_body).await;
+    assert_eq!(response.status().as_u16(), 500);
+
+    when_sending_an_email()
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .named("Delivery retry")
+        .mount(&app.email_server)
+        .await;
+
+    let response = app.post_news_letters(&newsletter_request_body).await;
+    assert_eq!(response.status().as_u16(), 303);
 }
