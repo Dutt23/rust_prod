@@ -90,6 +90,7 @@ pub async fn publish_newsletter(
         .try_into()
         .with_context(|| format!("Unable to get idempotency key"))
         .map_err(e400)?;
+    dbg!(idempotency_key.as_ref());
     let mut transaction = match try_processing(&pool, &idempotency_key, *user_id)
         .await
         .map_err(e500)?

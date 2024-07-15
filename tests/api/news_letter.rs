@@ -38,6 +38,7 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     let res = app.post_news_letters(&news_letter_body).await;
 
     assert_is_redirected_to(&res, "/admin/newsletters");
+    app.dispatch_all_pending_emails().await;
 }
 
 #[tokio::test]
@@ -67,6 +68,7 @@ async fn news_letters_are_delivered_to_confirmed_customers() {
         .await;
 
     assert_is_redirected_to(&res, "/admin/newsletters");
+    app.dispatch_all_pending_emails().await;
 }
 
 #[tokio::test]
@@ -204,6 +206,7 @@ async fn test_news_letter_creation_is_idempotent() {
     // Act - Part 3 - Submit newsletter form **again**
     let response = app.post_news_letters(&newsletter_request_body).await;
     assert_is_redirected_to(&response, "/admin/newsletters");
+    app.dispatch_all_pending_emails().await;
 }
 
 #[tokio::test]
@@ -233,6 +236,7 @@ async fn concurrent_form_submission_is_handled_gracefully() {
         response1.text().await.unwrap(),
         response2.text().await.unwrap()
     );
+    app.dispatch_all_pending_emails().await;
 }
 
 fn when_sending_an_email() -> MockBuilder {
@@ -265,15 +269,16 @@ async fn transient_errors_do_not_cause_duplicate_deliveries_on_retries() {
         .await;
 
     let response = app.post_news_letters(&newsletter_request_body).await;
-    assert_eq!(response.status().as_u16(), 500);
-
+    assert_eq!(response.status().as_u16(), 303);
+    app.dispatch_all_pending_emails().await;
     when_sending_an_email()
         .respond_with(ResponseTemplate::new(200))
-        .expect(1)
+        .expect(0)
         .named("Delivery retry")
         .mount(&app.email_server)
         .await;
 
     let response = app.post_news_letters(&newsletter_request_body).await;
     assert_eq!(response.status().as_u16(), 303);
+    app.dispatch_all_pending_emails().await;
 }

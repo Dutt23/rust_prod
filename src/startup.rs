@@ -12,6 +12,7 @@ use actix_web_flash_messages::{storage::CookieMessageStore, FlashMessagesFramewo
 use actix_web_lab::middleware::from_fn;
 use secrecy::ExposeSecret;
 use secrecy::Secret;
+use serde_json::error;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::net::TcpListener;
@@ -25,18 +26,7 @@ pub struct Application {
 impl Application {
     pub async fn build(settings: &Settings) -> Result<Self, anyhow::Error> {
         let connection_pool = get_connection_pool(settings);
-        let sender_email = settings
-            .email_client
-            .sender()
-            .expect("Unable to get sender email");
-
-        let timeout = settings.email_client.timeout();
-        let email_client = EmailClient::new(
-            settings.email_client.base_url.to_owned(),
-            sender_email,
-            settings.email_client.authorization_token.to_owned(),
-            timeout,
-        );
+        let email_client = settings.email_client.client();
         let listener = TcpListener::bind(format!("127.0.0.1:{}", settings.application.port))?;
         let port = listener.local_addr().unwrap().port();
         let server = run(
